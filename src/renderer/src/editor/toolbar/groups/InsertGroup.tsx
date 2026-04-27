@@ -1,0 +1,94 @@
+import { Link, Image } from 'lucide-react'
+import { useState } from 'react'
+import type { Editor } from '@tiptap/react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+
+interface InsertGroupProps {
+  editor: Editor | null
+}
+
+function InsertGroup({ editor }: InsertGroupProps): React.JSX.Element {
+  const [linkUrl, setLinkUrl] = useState('')
+  const [linkText, setLinkText] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+
+  const insertLink = (): void => {
+    if (!linkUrl) return
+    const { from, to } = editor!.state.selection
+    const hasSelection = from !== to
+
+    if (hasSelection && !linkText) {
+      editor?.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run()
+    } else if (linkText) {
+      editor?.chain().focus().insertContent({
+        type: 'text',
+        text: linkText,
+        marks: [{ type: 'link', attrs: { href: linkUrl } }],
+      }).run()
+    }
+    setLinkUrl('')
+    setLinkText('')
+  }
+
+  const insertImage = (): void => {
+    if (!imageUrl) return
+    editor?.chain().focus().setImage({ src: imageUrl }).run()
+    setImageUrl('')
+  }
+
+  const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Link className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">插入链接</TooltipContent>
+        </Tooltip>
+        <PopoverContent className="w-64 p-3" align="start">
+          <div className="space-y-2">
+            <Input placeholder="URL" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') insertLink() }} />
+            {!hasSelection && (
+              <Input placeholder="显示文字（可选）" value={linkText} onChange={(e) => setLinkText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') insertLink() }} />
+            )}
+            <Button size="sm" className="w-full" onClick={insertLink}>插入</Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Image className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">插入图片</TooltipContent>
+        </Tooltip>
+        <PopoverContent className="w-64 p-3" align="start">
+          <div className="space-y-2">
+            <Input placeholder="图片 URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') insertImage() }} />
+            <Button size="sm" className="w-full" onClick={insertImage}>插入</Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  )
+}
+
+export { InsertGroup }
