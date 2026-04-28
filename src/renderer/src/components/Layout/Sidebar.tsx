@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, FileText } from 'lucide-react'
+import { Plus, Upload, Trash2, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore, type Article } from '@/store/useAppStore'
+import { ImportDialog } from '@/components/ImportDialog'
+import { useToast } from '@/hooks/use-toast'
 
 function Sidebar(): React.JSX.Element {
   const [articles, setArticles] = useState<Article[]>([])
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const currentArticleId = useAppStore((s) => s.currentArticleId)
   const setCurrentArticleId = useAppStore((s) => s.setCurrentArticleId)
+  const setCurrentArticleTitle = useAppStore((s) => s.setCurrentArticleTitle)
   const setEditorContent = useAppStore((s) => s.setEditorContent)
+  const { toast } = useToast()
 
   const loadArticles = useCallback(async () => {
     try {
@@ -23,7 +28,6 @@ function Sidebar(): React.JSX.Element {
     loadArticles()
   }, [loadArticles])
 
-  // Listen for article changes from other parts of the app
   useEffect(() => {
     const handler = () => loadArticles()
     window.addEventListener('articles-changed', handler)
@@ -34,20 +38,21 @@ function Sidebar(): React.JSX.Element {
     try {
       const article = await window.api.articleCreate()
       setCurrentArticleId(article.id)
+      setCurrentArticleTitle(article.title)
       setEditorContent('')
-      // Dispatch event for editor to pick up
       window.dispatchEvent(new CustomEvent('load-article', { detail: { id: article.id, content: '' } }))
       await loadArticles()
     } catch (err) {
       console.error('Failed to create article:', err)
     }
-  }, [loadArticles, setCurrentArticleId, setEditorContent])
+  }, [loadArticles, setCurrentArticleId, setCurrentArticleTitle, setEditorContent])
 
   const handleSelect = useCallback(async (article: Article) => {
     setCurrentArticleId(article.id)
+    setCurrentArticleTitle(article.title)
     setEditorContent(article.content)
     window.dispatchEvent(new CustomEvent('load-article', { detail: { id: article.id, content: article.content } }))
-  }, [setCurrentArticleId, setEditorContent])
+  }, [setCurrentArticleId, setCurrentArticleTitle, setEditorContent])
 
   const handleDelete = useCallback(async () => {
     if (deleteTarget === null) return
@@ -64,6 +69,25 @@ function Sidebar(): React.JSX.Element {
       console.error('Failed to delete article:', err)
     }
   }, [deleteTarget, currentArticleId, loadArticles, setCurrentArticleId, setEditorContent])
+
+  const handleImported = useCallback(async (html: string, title: string) => {
+    try {
+      // Create new article with imported content
+      const article = await window.api.articleCreate()
+      await window.api.articleUpdate(article.id, { title, content: html })
+      setCurrentArticleId(article.id)
+      setEditorContent(html)
+      window.dispatchEvent(new CustomEvent('load-article', { detail: { id: article.id, content: html } }))
+      await loadArticles()
+    } catch (err) {
+      console.error('Failed to save imported article:', err)
+      toast({
+        title: '保存失败',
+        description: '文章已导入但保存失败，请重试',
+        variant: 'destructive',
+      })
+    }
+  }, [loadArticles, setCurrentArticleId, setEditorContent, toast])
 
   const formatTime = (timestamp: number): string => {
     const d = new Date(timestamp * 1000)
@@ -83,9 +107,16 @@ function Sidebar(): React.JSX.Element {
           <h2 className="whitespace-nowrap text-xs font-medium text-muted-foreground">
             文章列表
           </h2>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCreate} title="新建文章">
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={handleCreate}>
+              <Plus className="h-3.5 w-3.5" />
+              新建
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5" />
+              导入
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -116,7 +147,6 @@ function Sidebar(): React.JSX.Element {
                     </div>
                   </div>
                 </div>
-                {/* Delete button - show on hover */}
                 <button
                   className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:flex"
                   onClick={(e) => {
@@ -152,6 +182,13 @@ function Sidebar(): React.JSX.Element {
           </div>
         </div>
       )}
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={handleImported}
+      />
     </div>
   )
 }

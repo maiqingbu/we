@@ -16,10 +16,12 @@ interface Article {
 interface AppState {
   articles: Article[]
   currentArticleId: number | null
+  currentArticleTitle: string
   editorContent: string
   currentThemeId: string
   setArticles: (articles: Article[]) => void
   setCurrentArticleId: (id: number | null) => void
+  setCurrentArticleTitle: (title: string) => void
   setEditorContent: (html: string) => void
   setCurrentThemeId: (id: string) => void
 }
@@ -29,10 +31,12 @@ const useAppStore = create<AppState>()(
     (set) => ({
       articles: [],
       currentArticleId: null,
+      currentArticleTitle: '',
       editorContent: '',
       currentThemeId: 'original',
       setArticles: (articles) => set({ articles }),
       setCurrentArticleId: (id) => set({ currentArticleId: id }),
+      setCurrentArticleTitle: (title) => set({ currentArticleTitle: title }),
       setEditorContent: (html) => set({ editorContent: html }),
       setCurrentThemeId: (id) => set({ currentThemeId: id }),
     }),

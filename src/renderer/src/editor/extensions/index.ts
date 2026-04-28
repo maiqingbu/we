@@ -23,6 +23,8 @@ import { FontFamily } from './FontFamily'
 import { LineHeight } from './LineHeight'
 import { TextIndent } from './TextIndent'
 import { ParagraphSpacing } from './ParagraphSpacing'
+import { LintHighlight } from './LintHighlight'
+import { DragHandle as DragHandleExtension } from '@tiptap/extension-drag-handle-react'
 
 const lowlight = createLowlight(common)
 
@@ -78,5 +80,7 @@ export function getExtensions() {
     }),
     MarkdownPaste,
     MarkdownLink,
+    LintHighlight,
+    DragHandleExtension,
   ]
 }

@@ -34,6 +34,23 @@ export function getDb(): Database.Database {
     )
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS previews (
+      id TEXT PRIMARY KEY,
+      html TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_keys (
+      provider_id TEXT PRIMARY KEY,
+      encrypted_key BLOB NOT NULL,
+      model_id TEXT NOT NULL DEFAULT ''
+    )
+  `)
+
   return db
 }
 

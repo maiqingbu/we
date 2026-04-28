@@ -341,3 +341,24 @@
 .editor-wrapper .tiptap .resize-cursor {
   cursor: col-resize;
 }
+
+/* Drag handle - tippy.js controls visibility, just style the trigger */
+.drag-handle {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--color-muted-foreground);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-handle:hover {
+  background: var(--color-accent);
+  color: var(--color-foreground);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}

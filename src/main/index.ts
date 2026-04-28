@@ -3,6 +3,12 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
+import { registerImportHandlers } from './ipc/import'
+import { registerLinkCheckHandlers } from './ipc/linkCheck'
+import { registerExportPdfHandlers } from './ipc/exportPdf'
+import { registerPreviewHandlers } from './ipc/preview'
+import { registerAiHandlers } from './ipc/ai'
+import { startPreviewServer } from './services/previewServer'
 import { getDb } from './db'
 
 function createWindow(): void {
@@ -46,8 +52,16 @@ app.whenReady().then(() => {
   // Initialize database
   getDb()
 
+  // Start preview server
+  startPreviewServer()
+
   // Register IPC handlers
   registerIpcHandlers()
+  registerImportHandlers()
+  registerLinkCheckHandlers()
+  registerExportPdfHandlers()
+  registerPreviewHandlers()
+  registerAiHandlers()
 
   createWindow()
 
