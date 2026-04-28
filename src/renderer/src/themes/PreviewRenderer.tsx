@@ -65,13 +65,25 @@ interface PreviewRendererProps {
 function PreviewRenderer({ html, theme }: PreviewRendererProps): React.JSX.Element {
   const cleanHtml = useMemo(() => {
     const sanitized = DOMPurify.sanitize(html, {
-      ADD_ATTR: ['data-type', 'data-checked', 'class'],
+      ADD_ATTR: ['data-type', 'data-checked', 'class', 'data-template-id', 'data-material-id', 'data-editable', 'data-editable-img', 'data-html', 'contenteditable'],
       ADD_TAGS: ['span'],
     })
     return processTaskListCheckboxes(sanitized)
   }, [html])
 
-  const themeCSS = useMemo(() => generateThemeCSS(theme), [theme])
+  const themeCSS = useMemo(() => {
+    if (theme.customCss && theme.customCss.includes('.wx-root {')) {
+      // Custom theme with complete raw CSS
+      return theme.customCss.replace(/\.wx-root/g, `.theme-${theme.id}`)
+    }
+    // Preset theme: base styles + optional custom CSS enhancements
+    const base = generateThemeCSS(theme)
+    if (theme.customCss) {
+      const scoped = theme.customCss.replace(/\.wx-root/g, `.theme-${theme.id}`)
+      return base + '\n' + scoped
+    }
+    return base
+  }, [theme])
 
   const isEmpty = !cleanHtml || cleanHtml === '<p></p>' || cleanHtml === '<p><br></p>'
 

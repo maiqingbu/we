@@ -2,10 +2,10 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useEditor as useTipTapEditor } from '@tiptap/react'
 import { getExtensions } from '../extensions'
 import { useAppStore } from '@/store/useAppStore'
+import { getEditorHtml } from '../extensions/TemplateBlock'
 
 export function useEditor() {
   const setEditorContent = useAppStore((s) => s.setEditorContent)
-  const currentArticleId = useAppStore((s) => s.currentArticleId)
   const debounceRef = { timer: null as ReturnType<typeof setTimeout> | null }
   const saveTimerRef = { timer: null as ReturnType<typeof setTimeout> | null }
   const isSettingContent = useRef(false)
@@ -20,7 +20,7 @@ export function useEditor() {
     },
     onUpdate: ({ editor }) => {
       if (isSettingContent.current) return
-      const html = editor.getHTML()
+      const html = getEditorHtml(editor)
       setEditorContent(html)
 
       // Auto-save to DB: 1 second debounce

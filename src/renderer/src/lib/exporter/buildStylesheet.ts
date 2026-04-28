@@ -25,6 +25,10 @@ function cssObjectToString(props: React.CSSProperties): string {
  * Uses .wx-root as the scope selector for juice to inline.
  */
 export function buildStylesheet(theme: Theme): string {
+  if (theme.customCss) {
+    // Custom theme: use raw CSS directly (already uses .wx-root selectors)
+    return theme.customCss
+  }
   const s = theme.styles
   return `
     .wx-root { ${cssObjectToString(s.container)} }

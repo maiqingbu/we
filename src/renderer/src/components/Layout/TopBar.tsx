@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Download, Link2, Loader2, Settings } from 'lucide-react'
+import { Copy, Download, Link2, Loader2, Settings, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -10,16 +10,21 @@ import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/store/useAppStore'
 import { themes } from '@/themes/presets'
 import { exportForWechat, htmlToText } from '@/lib/exporter'
+import { countBase64Images } from '@/lib/imageUpload'
 import { ExportDialog } from '@/components/ExportDialog'
 import { PreviewLinkDialog } from '@/components/PreviewLinkDialog'
 import { SettingsDialog } from '@/components/Settings'
+import { AIAssistant } from '@/components/AIAssistant'
+import { MaterialPanel } from '@/components/MaterialPanel'
 
 function TopBar(): React.JSX.Element {
   const [isExporting, setIsExporting] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [materialOpen, setMaterialOpen] = useState(false)
   const { toast } = useToast()
+  const editor = useAppStore((s) => s.editorInstance)
 
   const handleCopy = useCallback(async () => {
     if (isExporting) return
@@ -33,16 +38,26 @@ function TopBar(): React.JSX.Element {
     setIsExporting(true)
     try {
       const themeId = useAppStore.getState().currentThemeId
-      const theme = themes.find((t) => t.id === themeId)
+      const theme = useAppStore.getState().currentTheme
       if (!theme) {
         toast({ title: '主题未找到', variant: 'destructive' })
         return
       }
 
-      const exported = exportForWechat(editorContent, theme)
+      const exported = await exportForWechat(editorContent, theme)
       if (!exported) {
         toast({ title: '导出内容为空', variant: 'destructive' })
         return
+      }
+
+      // Warn about base64 images
+      const b64Count = countBase64Images(editorContent)
+      if (b64Count > 3) {
+        toast({
+          title: `文档包含 ${b64Count} 张未上传图片，体积可能很大`,
+          description: '建议先上传到图床',
+          variant: 'destructive',
+        })
       }
 
       const plainText = htmlToText(exported)
@@ -98,6 +113,15 @@ function TopBar(): React.JSX.Element {
       <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterialOpen(true)}>
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">素材库</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
               <Settings className="h-4 w-4" />
             </Button>
@@ -139,6 +163,8 @@ function TopBar(): React.JSX.Element {
           </TooltipContent>
         </Tooltip>
 
+        {editor && <AIAssistant editor={editor} />}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -164,6 +190,7 @@ function TopBar(): React.JSX.Element {
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
       <PreviewLinkDialog open={previewOpen} onOpenChange={setPreviewOpen} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <MaterialPanel open={materialOpen} onOpenChange={setMaterialOpen} />
     </div>
   )
 }

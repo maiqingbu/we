@@ -64,6 +64,28 @@ interface Api {
   offAiDone: (callback: (...args: any[]) => void) => void
   onAiError: (callback: (event: Electron.IpcRendererEvent, data: { requestId: string; error: string }) => void) => void
   offAiError: (callback: (...args: any[]) => void) => void
+  styleList: () => Promise<Array<{ id: number; name: string; styles: string; created_at: number }>>
+  styleCreate: (name: string, styles: string) => Promise<{ id: number; name: string; styles: string; created_at: number }>
+  styleUpdate: (id: number, name: string) => Promise<{ id: number; name: string; styles: string; created_at: number }>
+  styleDelete: (id: number) => Promise<boolean>
+  snapshotList: (articleId: number) => Promise<Array<{ id: number; article_id: number; content: string; word_count: number; created_at: number }>>
+  snapshotCreate: (articleId: number, content: string, wordCount: number) => Promise<{ id: number }>
+  snapshotGet: (id: number) => Promise<{ id: number; article_id: number; content: string; word_count: number; created_at: number } | null>
+  snapshotLatestTime: (articleId: number) => Promise<number | null>
+  customThemeList: () => Promise<Array<{ id: string; name: string; css: string; base_theme_id: string | null; created_at: number; updated_at: number }>>
+  customThemeCreate: (id: string, name: string, css: string, baseThemeId: string | null) => Promise<{ id: string; name: string; css: string }>
+  customThemeUpdate: (id: string, name: string, css: string) => Promise<{ id: string; name: string; css: string }>
+  customThemeDelete: (id: string) => Promise<boolean>
+  customThemeDuplicate: (sourceId: string, newName: string) => Promise<{ id: string; name: string; css: string }>
+  // Image Host
+  imageHostSaveConfig: (providerId: string, config: Record<string, string>) => Promise<void>
+  imageHostGetConfig: (providerId: string) => Promise<Record<string, string> | null>
+  imageHostDeleteConfig: (providerId: string) => Promise<boolean>
+  imageHostListConfigured: () => Promise<string[]>
+  imageHostGetSetting: (key: string) => Promise<string | null>
+  imageHostSetSetting: (key: string, value: string) => Promise<void>
+  imageUpload: (providerId: string, fileData: { buffer: ArrayBuffer; name: string }, config: Record<string, string>) => Promise<{ success: boolean; data?: { url: string }; error?: string }>
+  imageTestConnection: (providerId: string, config: Record<string, string>) => Promise<{ ok: boolean; error?: string }>
 }
 
 declare global {

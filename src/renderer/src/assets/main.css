@@ -52,6 +52,26 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  /* 工具栏自定义横向滚动条 */
+  .toolbar-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  }
+  .toolbar-scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+  .toolbar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .toolbar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+  }
+  .toolbar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
 }
 
 @layer base {

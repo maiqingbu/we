@@ -4,6 +4,7 @@ import {
   DialogContent,
 } from '@/components/ui/dialog'
 import { AISettings } from './AISettings'
+import { ImageHostSettings } from './ImageHostSettings'
 
 interface SettingsDialogProps {
   open: boolean
@@ -12,6 +13,7 @@ interface SettingsDialogProps {
 
 const SECTIONS = [
   { id: 'ai', label: 'AI 配置' },
+  { id: 'image', label: '图床配置' },
 ]
 
 function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): React.JSX.Element {
@@ -44,6 +46,7 @@ function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): React.JSX.
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeSection === 'ai' && <AISettings />}
+          {activeSection === 'image' && <ImageHostSettings />}
         </div>
       </DialogContent>
     </Dialog>

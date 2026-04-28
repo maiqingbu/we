@@ -9,8 +9,8 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-export function exportFullHtml(html: string, theme: Theme, title: string): string {
-  const inlined = exportForWechat(html, theme)
+export async function exportFullHtml(html: string, theme: Theme, title: string): Promise<string> {
+  const inlined = await exportForWechat(html, theme)
   if (!inlined) throw new Error('导出内容为空')
 
   return `<!DOCTYPE html>

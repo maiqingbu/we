@@ -25,6 +25,9 @@ import { TextIndent } from './TextIndent'
 import { ParagraphSpacing } from './ParagraphSpacing'
 import { LintHighlight } from './LintHighlight'
 import { DragHandle as DragHandleExtension } from '@tiptap/extension-drag-handle-react'
+import { SlashCommand } from './SlashCommand'
+import { ImageUpload } from './ImageUpload'
+import { TemplateBlock } from './TemplateBlock'
 
 const lowlight = createLowlight(common)
 
@@ -49,7 +52,7 @@ export function getExtensions() {
     }),
     Image.configure({
       inline: false,
-      allowBase64: false,
+      allowBase64: true,
     }),
     TextAlign.configure({
       types: ['heading', 'paragraph'],
@@ -82,5 +85,8 @@ export function getExtensions() {
     MarkdownLink,
     LintHighlight,
     DragHandleExtension,
+    SlashCommand,
+    ImageUpload,
+    TemplateBlock,
   ]
 }

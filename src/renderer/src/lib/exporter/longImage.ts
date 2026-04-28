@@ -11,7 +11,7 @@ export async function exportLongImage(
   title: string,
   options: LongImageOptions
 ): Promise<void> {
-  const inlinedHtml = exportForWechat(html, theme)
+  const inlinedHtml = await exportForWechat(html, theme)
   if (!inlinedHtml) throw new Error('导出内容为空')
 
   const fullHtml = `<!DOCTYPE html>

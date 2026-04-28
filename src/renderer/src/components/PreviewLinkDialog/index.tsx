@@ -71,7 +71,7 @@ function PreviewLinkDialog({ open, onOpenChange }: PreviewLinkDialogProps): Reac
       const theme = themes.find((t) => t.id === themeId)
       if (!theme) return
 
-      const inlinedHtml = exportForWechat(editorContent, theme)
+      const inlinedHtml = await exportForWechat(editorContent, theme)
       if (!inlinedHtml) return
 
       const title = useAppStore.getState().currentArticleTitle || '未命名文章'

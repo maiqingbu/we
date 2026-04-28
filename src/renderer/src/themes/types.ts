@@ -31,4 +31,16 @@ export interface Theme {
   name: string
   description: string
   styles: ThemeStyles
+  customCss?: string  // For custom themes - raw CSS string
+  previewImage?: string  // Theme thumbnail preview image URL
+  headerImage?: string  // Theme header banner image URL (displayed at top of articles)
+  headerText?: HeaderTextConfig  // Text overlay on header banner
+}
+
+export interface HeaderTextConfig {
+  title?: string       // Main title text (empty string or undefined = no title)
+  subtitle?: string    // Subtitle text
+  color?: string       // Text color (default: white)
+  align?: 'left' | 'center' | 'right'  // Text alignment (default: left)
+  position?: 'top' | 'center' | 'bottom'  // Vertical position (default: bottom)
 }

@@ -11,7 +11,7 @@ export async function exportPdf(
   title: string,
   options: PdfExportOptions
 ): Promise<void> {
-  const inlined = exportForWechat(html, theme)
+  const inlined = await exportForWechat(html, theme)
   if (!inlined) throw new Error('导出内容为空')
 
   // Build full HTML document for PDF rendering

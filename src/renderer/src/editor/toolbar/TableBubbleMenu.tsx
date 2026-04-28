@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
   ArrowUpFromLine,
@@ -23,6 +24,20 @@ interface TableBubbleMenuContentProps {
 }
 
 function TableBubbleMenuContent({ editor }: TableBubbleMenuContentProps): React.JSX.Element {
+  // 订阅选区变化，确保按钮 disabled 状态实时更新
+  const [, forceUpdate] = useState(0)
+  useEffect(() => {
+    const handler = () => forceUpdate((n) => n + 1)
+    editor.on('selectionUpdate', handler)
+    editor.on('transaction', handler)
+    return () => {
+      editor.off('selectionUpdate', handler)
+      editor.off('transaction', handler)
+    }
+  }, [editor])
+
+  const canMerge = editor.can().mergeCells()
+  const canSplit = editor.can().splitCell()
   return (
     <div className="flex items-center gap-0.5 rounded-md border border-border bg-white p-1 shadow-lg">
       {/* ===== 组1：行操作 ===== */}
@@ -123,7 +138,7 @@ function TableBubbleMenuContent({ editor }: TableBubbleMenuContentProps): React.
             size="icon"
             className="h-7 w-7"
             onClick={() => editor.chain().focus().mergeCells().run()}
-            disabled={!editor.can().mergeCells()}
+            disabled={!canMerge}
           >
             <Merge className="h-3.5 w-3.5" />
           </Button>
@@ -138,7 +153,7 @@ function TableBubbleMenuContent({ editor }: TableBubbleMenuContentProps): React.
             size="icon"
             className="h-7 w-7"
             onClick={() => editor.chain().focus().splitCell().run()}
-            disabled={!editor.can().splitCell()}
+            disabled={!canSplit}
           >
             <Split className="h-3.5 w-3.5" />
           </Button>

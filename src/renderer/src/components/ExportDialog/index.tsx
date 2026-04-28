@@ -84,7 +84,7 @@ function ExportDialog({ open, onOpenChange }: ExportDialogProps): React.JSX.Elem
           break
         }
         case 'html': {
-          const fullHtml = exportFullHtml(editorContent, theme, title)
+          const fullHtml = await exportFullHtml(editorContent, theme, title)
           const result = await window.api.saveFile(fullHtml, `${safeName}.html`)
           if (!result.canceled && result.path) {
             toast({ title: `已保存到 ${result.path}` })

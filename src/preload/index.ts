@@ -101,6 +101,52 @@ const api = {
     ipcRenderer.on('ai:error', callback),
   offAiError: (callback: (...args: any[]) => void) =>
     ipcRenderer.removeListener('ai:error', callback),
+  // Saved Styles
+  styleList: (): Promise<Array<{ id: number; name: string; styles: string; created_at: number }>> =>
+    ipcRenderer.invoke('style:list'),
+  styleCreate: (name: string, styles: string): Promise<{ id: number; name: string; styles: string; created_at: number }> =>
+    ipcRenderer.invoke('style:create', name, styles),
+  styleUpdate: (id: number, name: string): Promise<{ id: number; name: string; styles: string; created_at: number }> =>
+    ipcRenderer.invoke('style:update', id, name),
+  styleDelete: (id: number): Promise<boolean> =>
+    ipcRenderer.invoke('style:delete', id),
+  // Snapshots
+  snapshotList: (articleId: number): Promise<Array<{ id: number; article_id: number; content: string; word_count: number; created_at: number }>> =>
+    ipcRenderer.invoke('snapshot:list', articleId),
+  snapshotCreate: (articleId: number, content: string, wordCount: number): Promise<{ id: number }> =>
+    ipcRenderer.invoke('snapshot:create', articleId, content, wordCount),
+  snapshotGet: (id: number): Promise<{ id: number; article_id: number; content: string; word_count: number; created_at: number } | null> =>
+    ipcRenderer.invoke('snapshot:get', id),
+  snapshotLatestTime: (articleId: number): Promise<number | null> =>
+    ipcRenderer.invoke('snapshot:latest-time', articleId),
+  // Custom Themes
+  customThemeList: (): Promise<Array<{ id: string; name: string; css: string; base_theme_id: string | null; created_at: number; updated_at: number }>> =>
+    ipcRenderer.invoke('custom-theme:list'),
+  customThemeCreate: (id: string, name: string, css: string, baseThemeId: string | null): Promise<{ id: string; name: string; css: string }> =>
+    ipcRenderer.invoke('custom-theme:create', id, name, css, baseThemeId),
+  customThemeUpdate: (id: string, name: string, css: string): Promise<{ id: string; name: string; css: string }> =>
+    ipcRenderer.invoke('custom-theme:update', id, name, css),
+  customThemeDelete: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('custom-theme:delete', id),
+  customThemeDuplicate: (sourceId: string, newName: string): Promise<{ id: string; name: string; css: string }> =>
+    ipcRenderer.invoke('custom-theme:duplicate', sourceId, newName),
+  // Image Host
+  imageHostSaveConfig: (providerId: string, config: Record<string, string>): Promise<void> =>
+    ipcRenderer.invoke('image-host:save-config', providerId, config),
+  imageHostGetConfig: (providerId: string): Promise<Record<string, string> | null> =>
+    ipcRenderer.invoke('image-host:get-config', providerId),
+  imageHostDeleteConfig: (providerId: string): Promise<boolean> =>
+    ipcRenderer.invoke('image-host:delete-config', providerId),
+  imageHostListConfigured: (): Promise<string[]> =>
+    ipcRenderer.invoke('image-host:list-configured'),
+  imageHostGetSetting: (key: string): Promise<string | null> =>
+    ipcRenderer.invoke('image-host:get-setting', key),
+  imageHostSetSetting: (key: string, value: string): Promise<void> =>
+    ipcRenderer.invoke('image-host:set-setting', key, value),
+  imageUpload: (providerId: string, fileData: { buffer: ArrayBuffer; name: string }, config: Record<string, string>): Promise<{ success: boolean; data?: { url: string }; error?: string }> =>
+    ipcRenderer.invoke('image:upload', providerId, fileData, config),
+  imageTestConnection: (providerId: string, config: Record<string, string>): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('image:test-connection', providerId, config),
 }
 
 if (process.contextIsolated) {
