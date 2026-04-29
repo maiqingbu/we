@@ -1,11 +1,17 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Download, Link2, Loader2, Settings, Sparkles } from 'lucide-react'
+import { Copy, Download, Link2, Loader2, Replace, Search, Settings, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 import { useAppStore } from '@/store/useAppStore'
 import { themes } from '@/themes/presets'
@@ -111,6 +117,27 @@ function TopBar(): React.JSX.Element {
         <span className="text-sm font-semibold text-foreground">微信公众号排版</span>
       </div>
       <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Search className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">查找替换</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-find-replace'))}>
+              <Search className="mr-2 h-4 w-4" /> 查找
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-find-replace', { detail: { replace: true } }))}>
+              <Replace className="mr-2 h-4 w-4" /> 查找替换
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterialOpen(true)}>

@@ -3,6 +3,60 @@ import { buildStylesheet } from './buildStylesheet'
 import { processCodeBlocks } from './codeBlockProcess'
 import { inlineStyles } from './inlineStyles'
 import { postProcess } from './postProcess'
+import { convertColumnsToTable } from './columnsToTable'
+
+/**
+ * 展开模板块：将 data-html 属性中的内容填入 section 内部，
+ * 并根据 data-rotation 对图片应用旋转、文字应用反向旋转。
+ */
+function expandTemplateBlocks(html: string): string {
+  return html.replace(
+    /<section([^>]*data-template-id="[^"]*"[^>]*)\s*data-html="([^"]*)"[^>]*>\s*<\/section>/g,
+    (_match, attrs, encodedHtml) => {
+      const content = encodedHtml
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      const rotMatch = attrs.match(/data-rotation="(-?\d+)"/)
+      const rotation = rotMatch ? parseInt(rotMatch[1], 10) : 0
+      if (rotation !== 0) {
+        return `<section${attrs}>${applyRotationToHtml(content, rotation)}</section>`
+      }
+      return `<section${attrs}>${content}</section>`
+    }
+  )
+}
+
+function applyRotationToHtml(html: string, angle: number): string {
+  const imgTransform = `transform:rotate(${angle}deg);transform-origin:center center;`
+  const textTransform = `transform:rotate(${-angle}deg);`
+
+  // 给 <img 标签注入旋转样式（合并到已有 style 或新增）
+  let result = html.replace(/<img\b([^>]*?)\bstyle="([^"]*)"([^>]*)/gi, (_m, before, style, after) => {
+    if (style.includes('transform')) return _m
+    return `<img${before}style="${imgTransform}${style}"${after}`
+  })
+  result = result.replace(/<img(?![^>]*\bstyle=)(\s)/gi, (_m, sp) => {
+    return `<img style="${imgTransform}"${sp}`
+  })
+
+  // 给纯文字标签注入反向旋转
+  const textTags = ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'em', 'strong', 'b', 'i', 'u', 'label', 'a']
+  for (const tag of textTags) {
+    const reStyle = new RegExp(`<${tag}\\b([^>]*?)\\bstyle="([^"]*)"([^>]*)`, 'gi')
+    result = result.replace(reStyle, (_m, before, style, after) => {
+      if (style.includes('transform')) return _m
+      return `<${tag}${before}style="${textTransform}${style}"${after}`
+    })
+    const reNoStyle = new RegExp(`<${tag}(?![^>]*\\bstyle=)(\\s|>)`, 'gi')
+    result = result.replace(reNoStyle, (_m, after) => {
+      return `<${tag} style="${textTransform}"${after}`
+    })
+  }
+  return result
+}
 
 /**
  * Convert local image paths to base64 data URLs so WeChat can display them.
@@ -53,17 +107,23 @@ export async function exportForWechat(html: string, theme: Theme): Promise<strin
   // Step 1: Process code blocks (hljs colors + line wrapping)
   let processed = processCodeBlocks(html)
 
-  // Step 2: Convert local image paths to base64 data URLs
+  // Step 2: Expand template blocks (data-html → real DOM content, with rotation)
+  processed = expandTemplateBlocks(processed)
+
+  // Step 3: Convert local image paths to base64 data URLs
   processed = await convertLocalImagesToBase64(processed)
 
-  // Step 3: Build CSS from theme
+  // Step 4: Build CSS from theme
   const css = buildStylesheet(theme)
 
-  // Step 4: Inline styles with juice
+  // Step 5: Inline styles with juice
   const inlined = inlineStyles(processed, css)
 
-  // Step 5: Post-process for WeChat
-  const result = postProcess(inlined)
+  // Step 6: Convert columns containers to tables for WeChat compatibility
+  const withTables = convertColumnsToTable(inlined)
+
+  // Step 7: Post-process for WeChat
+  const result = postProcess(withTables)
 
   return result
 }

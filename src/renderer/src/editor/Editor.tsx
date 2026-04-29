@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import { EditorContent as TipTapEditorContent } from '@tiptap/react'
 import type { Editor as TipTapEditor } from '@tiptap/react'
+import { DOMSerializer } from 'prosemirror-model'
 import { DragHandle } from '@tiptap/extension-drag-handle-react'
 import { TableBubbleMenuContent } from './toolbar/TableBubbleMenu'
+import { ColumnsToolbar } from './extensions/ColumnsToolbar'
 // import { AIActionButton, AIOutputPanel } from '@/components/AIBubbleMenu'
 import { Toolbar } from './toolbar/Toolbar'
 import { StatusBar } from '@/components/StatusBar'
@@ -12,9 +14,31 @@ import { checkTypos, checkSensitive, computeStats, type TypoIssue, type Sensitiv
 import { countBase64Images } from '@/lib/imageUpload'
 import { getStoredFile, deleteStoredFile } from './extensions/ImageUpload'
 import type { LintIssue } from './extensions/LintHighlight'
+import { jumpToLintIssue } from './extensions/LintHighlight'
 import { useAppStore } from '@/store/useAppStore'
 import { UploadStatus } from '@/components/UploadStatus'
 import { SaveMaterialDialog } from '@/components/MaterialPanel/SaveMaterialDialog'
+import ImageEditorModal from '@/components/ImageEditorModal'
+import { FindReplacePanel } from '@/components/FindReplace'
+
+/**
+ * 用 ProseMirror 序列化器将选区内容转为 HTML。
+ * 比 window.getSelection().cloneContents() 更可靠：
+ * - 使用 <section> 标签（而非 React NodeView 的 <div>）
+ * - 保留 data-widths、data-layout 等结构属性
+ * - 正确处理 templateBlock、columnsContainer 等自定义节点
+ */
+function serializeSelection(editor: TipTapEditor): string {
+  const { from, to } = editor.state.selection
+  const fragment = editor.state.doc.slice(from, to).content
+  const serializer = DOMSerializer.fromSchema(editor.state.schema)
+  const wrap = document.createElement('div')
+  fragment.forEach((node) => {
+    const dom = serializer.serializeNode(node)
+    wrap.appendChild(dom)
+  })
+  return wrap.innerHTML
+}
 
 async function getUploadConfig(): Promise<{ providerId: string; config: Record<string, string> } | null> {
   try {
@@ -51,9 +75,103 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
   const [saveDialogHtml, setSaveDialogHtml] = useState('')
   const ctxMenuRef = useRef<HTMLDivElement>(null)
 
+  // 图片编辑器状态
+  const [imageEditorOpen, setImageEditorOpen] = useState(false)
+  const [imageEditorSrc, setImageEditorSrc] = useState('')
+
+  // 查找替换状态
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+  const [findReplaceMode, setFindReplaceMode] = useState(false) // false = find only, true = find+replace
+
   // Save editor instance to store for AIAssistant access
   useEffect(() => {
     if (editor) useAppStore.getState().setEditorInstance(editor)
+  }, [editor])
+
+  // 监听图片编辑事件（来自 ImageEditExtension / TemplateBlock / document-level dblclick）
+
+  // 查找替换快捷键
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        setFindReplaceOpen(true)
+        setFindReplaceMode(false)
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
+        e.preventDefault()
+        setFindReplaceOpen(true)
+        setFindReplaceMode(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // 监听来自 TopBar 的查找替换事件
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setFindReplaceOpen(true)
+      setFindReplaceMode(detail?.replace ?? false)
+    }
+    window.addEventListener('open-find-replace', handler)
+    return () => window.removeEventListener('open-find-replace', handler)
+  }, [])
+  const [imageEditorPos, setImageEditorPos] = useState(0)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ src: string; element?: HTMLElement }>).detail
+      if (detail?.src) {
+        setImageEditorSrc(detail.src)
+        let posFound = false
+
+        // 方法1：通过 DOM 元素计算位置
+        if (editor && detail.element) {
+          try {
+            const pos = editor.view.posAtDOM(detail.element, 0)
+            if (pos != null && pos > 0) {
+              setImageEditorPos(pos)
+              posFound = true
+            }
+          } catch { /* ignore */ }
+        }
+
+        // 方法2：按 src 匹配文档中的图片节点
+        if (!posFound && editor) {
+          editor.state.doc.descendants((node, pos) => {
+            if (posFound) return false
+            if (node.type.name === 'image' && node.attrs.src === detail.src) {
+              setImageEditorPos(pos)
+              posFound = true
+              return false
+            }
+            return true
+          })
+        }
+
+        setImageEditorOpen(true)
+      }
+    }
+    window.addEventListener('image:edit', handler)
+
+    // 全局 dblclick 监听：确保 NodeView 内部的图片也能触发编辑
+    const onDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName !== 'IMG') return
+      const src = target.getAttribute('src')
+      if (!src) return
+      e.preventDefault()
+      e.stopPropagation()
+      window.dispatchEvent(new CustomEvent('image:edit', {
+        detail: { src, element: target },
+      }))
+    }
+    document.addEventListener('dblclick', onDblClick, true)
+
+    return () => {
+      window.removeEventListener('image:edit', handler)
+      document.removeEventListener('dblclick', onDblClick, true)
+    }
   }, [editor])
 
   // 右键菜单：在编辑器 DOM 上监听 contextmenu
@@ -68,17 +186,9 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
       e.preventDefault()
       e.stopPropagation()
 
-      // 提取选区 HTML —— 用浏览器原生 Selection API，最可靠
+      // 提取选区 HTML —— 用 ProseMirror 序列化器，保留自定义节点结构
       try {
-        const sel = window.getSelection()
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0)
-          const div = document.createElement('div')
-          div.appendChild(range.cloneContents())
-          setCtxMenuHtml(div.innerHTML)
-        } else {
-          setCtxMenuHtml('')
-        }
+        setCtxMenuHtml(serializeSelection(editor))
       } catch {
         setCtxMenuHtml('')
       }
@@ -281,36 +391,13 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
     }
   }, [editor])
 
-  // Jump to position
+  // Jump to lint issue position
   const handleJump = useCallback(
     (start: number, end: number) => {
       if (!editor) return
       const plainText = editor.getText()
-      // Convert plain text offset to doc position
-      let textOffset = 0
-      let docPos = 0
-      let found = false
-      editor.state.doc.nodesBetween(0, editor.state.doc.content.size, (node, pos) => {
-        if (found) return false
-        if (node.type.name === 'codeBlock' || node.type.name === 'image' || node.type.name === 'horizontalRule') {
-          return true
-        }
-        if (node.isText) {
-          const text = node.text || ''
-          if (textOffset + text.length >= start) {
-            const from = pos + (start - textOffset)
-            const toPos = pos + (end - textOffset)
-            editor.chain().focus().setTextSelection({ from, to: toPos }).run()
-            found = true
-            return false
-          }
-          textOffset += text.length
-        } else if (node.isBlock && !node.isLeaf) {
-          if (textOffset > 0) textOffset += 1
-        }
-        docPos = pos
-        return true
-      })
+      const word = plainText.slice(start, end)
+      jumpToLintIssue(editor, word, start, end)
     },
     [editor]
   )
@@ -374,6 +461,22 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
       }
     } finally {
       setUploadingBase64(false)
+      // 上传完成后清除 lint 防抖计时器，防止其覆盖正确的 base64Count
+      if (lintTimerRef.current) {
+        clearTimeout(lintTimerRef.current)
+        lintTimerRef.current = null
+      }
+      // 上传完成后立即重新计数，不等 lint debounce
+      if (editor) {
+        let remaining = 0
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === 'image' && typeof node.attrs.src === 'string' && node.attrs.src.startsWith('data:image/')) {
+            remaining++
+          }
+          return true
+        })
+        setBase64Count(remaining)
+      }
     }
   }, [editor])
 
@@ -390,6 +493,15 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
       <Toolbar editor={editor} />
+      <FindReplacePanel
+        open={findReplaceOpen}
+        replaceMode={findReplaceMode}
+        onClose={() => {
+          setFindReplaceOpen(false)
+          editor?.commands.clearFind()
+        }}
+        editor={editor}
+      />
       {/* Base64 images warning bar */}
       {base64Count > 0 && (
         <div className="flex shrink-0 items-center gap-3 border-b border-border bg-amber-50 px-4 py-1.5 text-xs text-amber-800">
@@ -426,6 +538,11 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
         >
           <TableBubbleMenuContent editor={editor} />
         </BubbleMenu>
+      )}
+      {editor && (
+        <div className="flex justify-center py-1">
+          <ColumnsToolbar editor={editor} />
+        </div>
       )}
       <StatusBar
         stats={stats}
@@ -467,6 +584,14 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
         open={saveDialogOpen}
         onClose={() => setSaveDialogOpen(false)}
         selectedHtml={saveDialogHtml}
+      />
+
+      {/* 图片编辑器 */}
+      <ImageEditorModal
+        open={imageEditorOpen}
+        onClose={() => setImageEditorOpen(false)}
+        imageUrl={imageEditorSrc}
+        imagePos={imageEditorPos}
       />
     </div>
   )

@@ -51,6 +51,18 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Developer tools toggle
+  ipcMain.on('devtools:toggle', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) {
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools()
+      } else {
+        win.webContents.openDevTools({ mode: 'bottom' })
+      }
+    }
+  })
+
   // Initialize database
   getDb()
 

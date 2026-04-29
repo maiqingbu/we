@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: wx-typesetter
+appId: com.wx-typesetter.app
+productName: 微信排版工具
 directories:
   buildResources: build
 files:
@@ -40,6 +40,4 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: true
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
+publish: null

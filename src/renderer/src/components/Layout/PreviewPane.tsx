@@ -159,44 +159,6 @@ function PreviewPane(): React.JSX.Element {
     if (theme) useAppStore.getState().setCurrentTheme(theme)
   }, [theme])
 
-  // When theme changes, insert headerImage into editor if the theme has one
-  useEffect(() => {
-    if (!theme?.headerImage) return
-    const editor = useAppStore.getState().editorInstance
-    if (!editor) return
-
-    const { schema } = editor.state
-    const headerSrc = theme.headerImage
-
-    // Check if header image already exists at the top
-    const firstChild = editor.state.doc.firstChild
-    if (
-      firstChild?.type.name === 'image' &&
-      firstChild.attrs.src === headerSrc &&
-      firstChild.attrs['data-header-banner'] === 'true'
-    ) {
-      return // Already inserted
-    }
-
-    // Remove any existing header banner
-    const doc = editor.state.doc
-    const tr = editor.state.tr
-    if (
-      doc.firstChild?.type.name === 'image' &&
-      doc.firstChild.attrs['data-header-banner'] === 'true'
-    ) {
-      tr.delete(0, doc.firstChild.nodeSize)
-    }
-
-    // Insert new header banner image at the beginning
-    const bannerNode = schema.nodes.image.create({
-      src: headerSrc,
-      'data-header-banner': 'true',
-    })
-    tr.insert(0, bannerNode)
-    editor.view.dispatch(tr)
-  }, [currentThemeId, theme])
-
   return (
     <div className="flex h-full min-w-[280px] flex-col bg-muted/50">
       {/* Header with theme selector */}

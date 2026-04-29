@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Type,
   AlignLeft,
@@ -7,6 +8,7 @@ import {
   AlertTriangle,
   ShieldAlert,
   RefreshCw,
+  Terminal,
 } from 'lucide-react'
 import type { ArticleStats } from '@/lib/linter/statistics'
 import { cn } from '@/lib/utils'
@@ -55,8 +57,44 @@ function StatusBar({
   const sensitiveCount = sensitive.length
   const sensitiveHighCount = sensitive.filter((s) => s.level === 'high').length
 
+  // 开发者右键菜单
+  const [devMenuPos, setDevMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const devMenuRef = useRef<HTMLDivElement>(null)
+
+  const handleStatusBarContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setDevMenuPos({ x: e.clientX, y: e.clientY - 80 })
+  }, [])
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    if (!devMenuPos) return
+    const handler = (e: MouseEvent) => {
+      if (devMenuRef.current && !devMenuRef.current.contains(e.target as Node)) {
+        setDevMenuPos(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [devMenuPos])
+
+  // F12 快捷键切换开发者工具
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'F12') {
+        e.preventDefault()
+        window.api?.toggleDevTools()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   return (
-    <div className="h-9 shrink-0 border-t border-border bg-muted/30 px-3 flex items-center justify-between text-xs text-muted-foreground">
+    <div
+      className="h-9 shrink-0 border-t border-border bg-muted/30 px-3 flex items-center justify-between text-xs text-muted-foreground"
+      onContextMenu={handleStatusBarContextMenu}
+    >
       {/* Left side: article statistics */}
       <div className="flex items-center gap-4">
         {stats ? (
@@ -188,6 +226,27 @@ function StatusBar({
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* 开发者右键菜单 */}
+      {devMenuPos && (
+        <div
+          ref={devMenuRef}
+          className="fixed z-[9999] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[160px]"
+          style={{ left: devMenuPos.x, top: devMenuPos.y }}
+        >
+          <button
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2 cursor-pointer"
+            onClick={() => {
+              setDevMenuPos(null)
+              window.api?.toggleDevTools()
+            }}
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span>开发者工具</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">F12</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

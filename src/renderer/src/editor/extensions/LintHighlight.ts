@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { Editor } from '@tiptap/react'
 
 export interface LintIssue {
   start: number
@@ -23,48 +24,91 @@ declare module '@tiptap/core' {
 const lintKey = new PluginKey('lintHighlight')
 
 /**
- * Build a mapping: plainTextOffset → docPosition.
+ * Build posMap that exactly matches Tiptap's getTextBetween output.
  *
- * We reconstruct exactly what doc.getText() does:
- * - Walk text nodes in document order
- * - Insert virtual \n between consecutive block-level nodes
- * - Record each character's doc position
+ * getTextBetween uses:
+ *   1. blockSeparator before every block where pos > from
+ *   2. textSerializers (from schema renderText) for nodes that have them
+ *   3. Plain text from text nodes
  *
- * This is O(n) in document size and only runs when issues update.
+ * We replicate this logic so each index in the resulting text maps to a
+ * ProseMirror document position (or -1 for separator chars).
  */
-function buildOffsetMap(doc: ProseMirrorNode): Int32Array {
-  // getText() on a typical doc with 10k chars produces ~10k entries.
-  // Pre-allocate generously.
-  const map: number[] = []
-  let hadContent = false
+function buildPosMap(doc: ProseMirrorNode, textSerializers: Record<string, (ctx: any) => string>): number[] {
+  const posMap: number[] = []
+  const from = 0
+  const to = doc.content.size
+  const blockSeparator = '\n\n'
 
-  doc.descendants((node: ProseMirrorNode, pos: number) => {
-    if (node.isText) {
-      const text = node.text || ''
-      for (let i = 0; i < text.length; i++) {
-        map.push(pos + i)
-      }
-      hadContent = true
-    } else if (node.isBlock && !node.isLeaf) {
-      // getText() inserts \n between block siblings.
-      // We detect this by checking if we've seen content before
-      // this block node starts.
-      if (hadContent) {
-        map.push(-1) // virtual \n — no valid doc position
+  doc.nodesBetween(from, to, (node: ProseMirrorNode, pos: number, parent: any, index: number) => {
+    // Separator before every block node (except the first)
+    if (node.isBlock && pos > from) {
+      for (let i = 0; i < blockSeparator.length; i++) {
+        posMap.push(-1)
       }
     }
-    // Leaf blocks (image, horizontalRule) produce nothing in getText()
-    // but they are block nodes, so the next block will get a \n.
-    // We don't need special handling since hadContent tracks text only.
+
+    // Check for text serializer (e.g. hardBreak → "\n")
+    const serializer = textSerializers[node.type.name]
+    if (serializer) {
+      const rendered = serializer({ node, pos, parent, index })
+      // Each rendered char maps to this node's position
+      for (let i = 0; i < rendered.length; i++) {
+        posMap.push(pos)
+      }
+      return false // Don't descend into children
+    }
+
+    // Plain text nodes
+    if (node.isText) {
+      const text = node.text || ''
+      const start = Math.max(from, pos) - pos
+      const end = Math.min(text.length, to - pos)
+      for (let i = start; i < end; i++) {
+        posMap.push(pos + i)
+      }
+    }
+
     return true
   })
 
-  return new Int32Array(map)
+  return posMap
 }
 
-function resolvePos(map: Int32Array, offset: number): number | null {
-  if (offset < 0 || offset >= map.length) return null
-  const pos = map[offset]
+/**
+ * Get text serializers from the editor's schema (matches Tiptap's getTextSerializersFromSchema).
+ */
+function getTextSerializers(editor: Editor): Record<string, (ctx: any) => string> {
+  const serializers: Record<string, (ctx: any) => string> = {}
+  const schema = editor.schema
+  for (const [name, nodeType] of Object.entries(schema.nodes)) {
+    const spec = (nodeType as any).spec
+    if (spec?.toText) {
+      serializers[name] = spec.toText
+    }
+  }
+  return serializers
+}
+
+/**
+ * Find all occurrences of `word` in `text`.
+ */
+function findAllOccurrences(text: string, word: string): Array<{ from: number; to: number }> {
+  const results: Array<{ from: number; to: number }> = []
+  let idx = 0
+  while ((idx = text.indexOf(word, idx)) !== -1) {
+    results.push({ from: idx, to: idx + word.length })
+    idx += word.length
+  }
+  return results
+}
+
+/**
+ * Resolve a plainText offset to a ProseMirror document position.
+ */
+function resolvePos(posMap: number[], offset: number): number | null {
+  if (offset < 0 || offset >= posMap.length) return null
+  const pos = posMap[offset]
   return pos < 0 ? null : pos
 }
 
@@ -78,6 +122,41 @@ function lintColor(type: LintIssue['type']): string {
       return '#eab308'
     case 'sensitive-low':
       return '#9ca3af'
+  }
+}
+
+/**
+ * Jump to a lint issue in the editor.
+ */
+export function jumpToLintIssue(editor: Editor, word: string, start: number, end: number): void {
+  const text = editor.getText()
+  const serializers = getTextSerializers(editor)
+  const posMap = buildPosMap(editor.state.doc, serializers)
+
+  // Verify the word matches at the expected position
+  const actualWord = text.slice(start, end)
+  let from: number | null = null
+  let to: number | null = null
+
+  if (actualWord === word) {
+    from = resolvePos(posMap, start)
+    to = resolvePos(posMap, end - 1)
+  }
+
+  // Fallback: search for the word in the text
+  if (from === null || to === null || from >= to) {
+    const occurrences = findAllOccurrences(text, word)
+    if (occurrences.length > 0) {
+      const best = occurrences.reduce((closest, occ) => {
+        return Math.abs(occ.from - start) < Math.abs(closest.from - start) ? occ : closest
+      })
+      from = resolvePos(posMap, best.from)
+      to = resolvePos(posMap, best.to - 1)
+    }
+  }
+
+  if (from !== null && to !== null && from < to) {
+    editor.chain().focus().setTextSelection({ from, to: to + 1 }).scrollIntoView().run()
   }
 }
 
@@ -113,27 +192,38 @@ export const LintHighlight = Extension.create({
       state: {
         init: () => DecorationSet.empty,
 
-        apply(tr, oldDecorations, _oldState, newState) {
+        apply(tr, _oldDecorations, _oldState, newState) {
           const meta = tr.getMeta(lintKey)
           if (meta && meta.issues !== undefined) {
             currentIssues = meta.issues
           }
 
-          if (!tr.docChanged && !meta) return oldDecorations
+          if (!tr.docChanged && !meta) return _oldDecorations
 
-          const offsetMap = buildOffsetMap(newState.doc)
+          // Get text serializers from schema
+          const serializers: Record<string, (ctx: any) => string> = {}
+          // We can't access editor directly in plugin, so build from newState's schema
+          // The schema is available via newState.schema
+          const schema = newState.schema
+          for (const [name, nodeType] of Object.entries(schema.nodes)) {
+            const spec = (nodeType as any).spec
+            if (spec?.toText) {
+              serializers[name] = spec.toText
+            }
+          }
+
+          const posMap = buildPosMap(newState.doc, serializers)
+
           const decorations: Decoration[] = []
-
           for (const issue of currentIssues) {
-            const from = resolvePos(offsetMap, issue.start)
-            const to = resolvePos(offsetMap, issue.end)
-            if (from === null || to === null) continue
-            if (from >= to) continue
+            const decFrom = resolvePos(posMap, issue.start)
+            const decTo = resolvePos(posMap, issue.end - 1)
+            if (decFrom === null || decTo === null) continue
+            if (decFrom >= decTo) continue
 
             const color = lintColor(issue.type)
-
             decorations.push(
-              Decoration.inline(from, to, {
+              Decoration.inline(decFrom, decTo + 1, {
                 class: 'lint-highlight',
                 style: `text-decoration: underline wavy ${color}; text-decoration-skip-ink: none; cursor: help;`,
                 'data-lint-word': issue.word,

@@ -57,6 +57,67 @@ function processTaskListCheckboxes(html: string): string {
     )
 }
 
+/**
+ * 展开模板块：将 <section data-html="..."> 替换为包含实际内容的 section。
+ * 在 DOMPurify 清洗前调用，确保模板内容不被剥离。
+ * 同时读取 data-rotation，对图片应用旋转、对文字应用反向旋转。
+ */
+function expandTemplateBlocks(html: string): string {
+  return html.replace(
+    /<section([^>]*data-template-id="[^"]*"[^>]*)\s*data-html="([^"]*)"[^>]*>\s*<\/section>/g,
+    (_match, attrs, encodedHtml) => {
+      const content = encodedHtml
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+      // 提取旋转角度
+      const rotMatch = attrs.match(/data-rotation="(-?\d+)"/)
+      const rotation = rotMatch ? parseInt(rotMatch[1], 10) : 0
+      if (rotation !== 0) {
+        return `<section${attrs}>${applyRotationToHtml(content, rotation)}</section>`
+      }
+      return `<section${attrs}>${content}</section>`
+    }
+  )
+}
+
+/**
+ * 对模板 HTML 中的图片应用旋转、文字应用反向旋转。
+ * 通过正则在 img 标签上注入 style，对纯文字元素注入反向旋转。
+ */
+function applyRotationToHtml(html: string, angle: number): string {
+  const imgTransform = `transform:rotate(${angle}deg);transform-origin:center center;`
+  const textTransform = `transform:rotate(${-angle}deg);`
+
+  // 给 <img 标签注入旋转样式（合并到已有 style 或新增）
+  let result = html.replace(/<img\b([^>]*?)\bstyle="([^"]*)"([^>]*)/gi, (_m, before, style, after) => {
+    if (style.includes('transform')) return _m // 已有 transform，跳过
+    return `<img${before}style="${imgTransform}${style}"${after}`
+  })
+  result = result.replace(/<img(?![^>]*\bstyle=)(\s)/gi, (_m, sp) => {
+    return `<img style="${imgTransform}"${sp}`
+  })
+
+  // 给纯文字标签注入反向旋转
+  const textTags = ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'em', 'strong', 'b', 'i', 'u', 'label', 'a']
+  for (const tag of textTags) {
+    // 已有 style 属性的：合并
+    const reStyle = new RegExp(`<${tag}\\b([^>]*?)\\bstyle="([^"]*)"([^>]*)`, 'gi')
+    result = result.replace(reStyle, (_m, before, style, after) => {
+      if (style.includes('transform')) return _m
+      return `<${tag}${before}style="${textTransform}${style}"${after}`
+    })
+    // 没有 style 属性的：新增
+    const reNoStyle = new RegExp(`<${tag}(?![^>]*\\bstyle=)(\\s|>)`, 'gi')
+    result = result.replace(reNoStyle, (_m, after) => {
+      return `<${tag} style="${textTransform}"${after}`
+    })
+  }
+  return result
+}
+
 interface PreviewRendererProps {
   html: string
   theme: Theme
@@ -64,8 +125,9 @@ interface PreviewRendererProps {
 
 function PreviewRenderer({ html, theme }: PreviewRendererProps): React.JSX.Element {
   const cleanHtml = useMemo(() => {
-    const sanitized = DOMPurify.sanitize(html, {
-      ADD_ATTR: ['data-type', 'data-checked', 'class', 'data-template-id', 'data-material-id', 'data-editable', 'data-editable-img', 'data-html', 'contenteditable'],
+    const expanded = expandTemplateBlocks(html)
+    const sanitized = DOMPurify.sanitize(expanded, {
+      ADD_ATTR: ['data-type', 'data-checked', 'class', 'data-template-id', 'data-material-id', 'data-editable', 'data-editable-img', 'data-html', 'data-rotation', 'contenteditable', 'style'],
       ADD_TAGS: ['span'],
     })
     return processTaskListCheckboxes(sanitized)
@@ -78,11 +140,25 @@ function PreviewRenderer({ html, theme }: PreviewRendererProps): React.JSX.Eleme
     }
     // Preset theme: base styles + optional custom CSS enhancements
     const base = generateThemeCSS(theme)
+    const columnsFix = `
+.theme-${theme.id} [data-columns-container] img {
+  display: block;
+  max-width: 100%;
+  max-height: none;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.theme-${theme.id} [data-column] {
+  overflow: visible;
+}
+`
     if (theme.customCss) {
       const scoped = theme.customCss.replace(/\.wx-root/g, `.theme-${theme.id}`)
-      return base + '\n' + scoped
+      return base + '\n' + columnsFix + '\n' + scoped
     }
-    return base
+    return base + '\n' + columnsFix
   }, [theme])
 
   const isEmpty = !cleanHtml || cleanHtml === '<p></p>' || cleanHtml === '<p><br></p>'

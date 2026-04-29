@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Sparkles, Shrink, Expand, Palette, Globe, Keyboard, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Sparkles, Shrink, Expand, Palette, Globe, Keyboard, ChevronRight, ChevronLeft } from 'lucide-react'
 import type { Editor } from '@tiptap/react'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -40,6 +40,30 @@ function Toolbar({ editor }: ToolbarProps): React.JSX.Element {
   const [hasSelection, setHasSelection] = useState(false)
   const [selectedText, setSelectedText] = useState('')
   const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [hasOverflow, setHasOverflow] = useState(false)
+  const [showScrollBtns, setShowScrollBtns] = useState(false)
+
+  // 检测工具栏是否有溢出内容
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setHasOverflow(el.scrollWidth > el.clientWidth + 2)
+  }, [])
+
+  useEffect(() => {
+    checkOverflow()
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [checkOverflow, editor])
+
+  // 鼠标悬停时显示左右滑动按钮
+  const handleMouseEnter = () => setShowScrollBtns(true)
+  const handleMouseLeave = () => setShowScrollBtns(false)
+
+  const scrollBy = (dir: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
+  }
 
   // Track selection changes to show/hide AI button
   useEffect(() => {
@@ -68,9 +92,33 @@ function Toolbar({ editor }: ToolbarProps): React.JSX.Element {
   return (
     <div className="shrink-0 border-b border-border bg-background">
       <div
-        className="toolbar-scroll flex items-center gap-1 px-2 py-1"
-        style={{ minHeight: '36px' }}
+        className={`toolbar-scroll-wrapper ${hasOverflow ? 'has-overflow' : ''}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
+        {/* 左右滑动按钮 */}
+        {hasOverflow && showScrollBtns && (
+          <>
+            <button
+              onClick={() => scrollBy('left')}
+              className="absolute left-0 top-0 bottom-0 z-10 flex w-6 items-center justify-center bg-gradient-to-r from-background to-transparent text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => scrollBy('right')}
+              className="absolute right-0 top-0 bottom-0 z-10 flex w-6 items-center justify-center bg-gradient-to-l from-background to-transparent text-muted-foreground hover:text-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
+        <div
+          ref={scrollRef}
+          className="toolbar-scroll flex items-center gap-1 px-2 py-1"
+          style={{ minHeight: '36px' }}
+          onScroll={checkOverflow}
+        >
         {/* ===== 始终显示 ===== */}
         <HistoryGroup editor={editor} />
         <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
@@ -128,6 +176,7 @@ function Toolbar({ editor }: ToolbarProps): React.JSX.Element {
           <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
           <MoreMenuGroup editor={editor} />
         </span>
+        </div>
       </div>
     </div>
   )

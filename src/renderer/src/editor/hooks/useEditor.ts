@@ -2,7 +2,6 @@ import { useEffect, useCallback, useRef } from 'react'
 import { useEditor as useTipTapEditor } from '@tiptap/react'
 import { getExtensions } from '../extensions'
 import { useAppStore } from '@/store/useAppStore'
-import { getEditorHtml } from '../extensions/TemplateBlock'
 
 export function useEditor() {
   const setEditorContent = useAppStore((s) => s.setEditorContent)
@@ -20,7 +19,7 @@ export function useEditor() {
     },
     onUpdate: ({ editor }) => {
       if (isSettingContent.current) return
-      const html = getEditorHtml(editor)
+      const html = editor.getHTML()
       setEditorContent(html)
 
       // Auto-save to DB: 1 second debounce

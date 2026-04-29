@@ -31,6 +31,7 @@ interface FileFilter {
 
 const api = {
   ping: (): Promise<string> => ipcRenderer.invoke('ping'),
+  toggleDevTools: () => ipcRenderer.send('devtools:toggle'),
   copyToWechat: (html: string, plainText: string): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('copy-to-wechat', html, plainText),
   debugSaveExport: (html: string): Promise<{ filePath: string }> =>

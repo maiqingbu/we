@@ -12,12 +12,18 @@ export function postProcess(html: string): string {
     el.removeAttribute('class')
   })
 
-  // 2. Remove all data-* attributes (except we handle taskList specially below)
+  // 2. Remove data-* attributes that are no longer needed after expansion
   body.querySelectorAll('[data-type]').forEach((el) => {
     el.removeAttribute('data-type')
   })
   body.querySelectorAll('[data-checked]').forEach((el) => {
     el.removeAttribute('data-checked')
+  })
+  body.querySelectorAll('[data-template-id]').forEach((el) => {
+    el.removeAttribute('data-template-id')
+    el.removeAttribute('data-material-id')
+    el.removeAttribute('data-html')
+    el.removeAttribute('data-rotation')
   })
 
   // 3. Convert task lists to plain text with ☑/☐ prefixes

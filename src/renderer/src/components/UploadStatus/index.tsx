@@ -47,16 +47,30 @@ function UploadStatus(): React.JSX.Element {
     }
   }, [])
 
-  // Auto-hide when all tasks are done and none failed
+  // Auto-hide: success tasks → 3s, failed tasks → 8s, all done → hide
   useEffect(() => {
-    if (allDone && !hasFailed && tasks.length > 0) {
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current)
-      }
+    if (tasks.length === 0) {
+      setVisible(false)
+      return
+    }
+
+    // Auto-remove failed tasks after 8 seconds
+    if (hasFailed) {
+      const timer = setTimeout(() => {
+        const failed = uploadManager.getTasks().filter((t) => t.status === 'failed')
+        failed.forEach((t) => uploadManager.removeTask(t.id))
+      }, 8000)
+      return () => clearTimeout(timer)
+    }
+
+    // Auto-hide when all done (no active, no failed)
+    if (allDone && !hasFailed) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
       hideTimerRef.current = setTimeout(() => {
         setVisible(false)
       }, 3000)
     }
+
     return () => {
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current)

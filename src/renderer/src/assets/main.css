@@ -57,7 +57,10 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+    scrollbar-color: transparent transparent;
+  }
+  .toolbar-scroll:hover {
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
   }
   .toolbar-scroll::-webkit-scrollbar {
     height: 4px;
@@ -66,11 +69,33 @@
     background: transparent;
   }
   .toolbar-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
+    background: transparent;
     border-radius: 2px;
   }
+  .toolbar-scroll:hover::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+  }
   .toolbar-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.35);
+  }
+  /* 右侧渐变遮罩，提示可滚动 */
+  .toolbar-scroll-wrapper {
+    position: relative;
+  }
+  .toolbar-scroll-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    background: linear-gradient(to right, transparent, var(--background, #fff));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .toolbar-scroll-wrapper.has-overflow::after {
+    opacity: 1;
   }
 }
 
@@ -297,8 +322,31 @@
   margin: 0.75em 0;
 }
 
+/* ReactNodeViewRenderer 插入的中间容器必须透明化，否则会破坏 flex 布局 */
+.editor-wrapper .tiptap [data-columns-container] [data-node-view-content-react] {
+  display: contents;
+}
+
+/* 防止分栏布局中图片被 flex 挤压变形 */
+.editor-wrapper .tiptap [data-columns-container] img {
+  display: block;
+  max-width: 100%;
+  max-height: none;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .editor-wrapper .tiptap img.ProseMirror-selectednode {
   outline: 2px solid var(--color-ring);
+}
+
+/* 图片编辑按钮：hover 图片时显示 */
+.editor-wrapper .tiptap img:hover ~ .image-edit-hover-btn,
+.editor-wrapper .tiptap .image-edit-hover-btn:hover {
+  opacity: 1 !important;
+  pointer-events: auto;
 }
 
 /* Table */

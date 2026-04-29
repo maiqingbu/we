@@ -29,6 +29,7 @@ function countParagraphs(doc: any): number {
   // Only count nodes whose parent is one of these "content containers"
   const containerParents = new Set([
     'doc', 'blockquote', 'listItem', 'taskItem',
+    'tableCell', 'tableHeader', 'templateBlock', 'column',
   ])
   doc.descendants((node: any, _pos: number, parent: any) => {
     if (!parent) return true

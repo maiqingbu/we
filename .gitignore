@@ -6,3 +6,6 @@ out
 *.log*
 src-tauri/target/
 src-tauri/target 2/
+*.db
+*.db-wal
+*.db-shm

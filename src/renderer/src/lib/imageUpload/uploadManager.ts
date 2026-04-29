@@ -37,6 +37,11 @@ class UploadManager {
         return url
       } catch (e: any) {
         this.update(id, { status: 'failed', error: e.message })
+        // Auto-remove failed tasks after 8 seconds
+        setTimeout(() => {
+          this.tasks.delete(id)
+          this.notify()
+        }, 8000)
         throw e
       }
     })

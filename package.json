@@ -1,7 +1,7 @@
 {
   "name": "wx-typesetter",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "微信公众号排版工具 - 桌面端文章编辑器，支持富文本编辑、主题样式、素材库、AI 写作辅助和一键导出",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
@@ -62,6 +62,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.1",
+    "fabric": "^6.9.1",
     "file-type": "^22.0.1",
     "fuse.js": "^7.3.0",
     "html-to-image": "^1.11.13",

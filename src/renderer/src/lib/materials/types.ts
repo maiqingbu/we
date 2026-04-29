@@ -3,13 +3,17 @@ export type MaterialCategory =
   | 'template-info' | 'template-quote' | 'template-highlight'
   | 'template-cta' | 'template-qrcode' | 'template-author'
   | 'template-follow' | 'template-end'
+  | 'template-qa' | 'template-compare' | 'template-steps'
+  | 'template-stats' | 'template-key-points' | 'template-warning'
+  | 'template-testimonial' | 'template-list' | 'template-toc'
   | 'festival-spring' | 'festival-midautumn' | 'festival-christmas'
-  | 'festival-qixi' | 'festival-national';
+  | 'festival-qixi' | 'festival-national'
+  | 'svg-decor' | 'svg-icon' | 'svg-badge';
 
-export type MaterialKind = 'divider' | 'template' | 'festival' | 'snippet';
+export type MaterialKind = 'divider' | 'template' | 'festival' | 'snippet' | 'svg';
 
-/** 自定义素材类型（snippet = 自由插入, template = 锁定样式, divider = 分割线） */
-export type CustomMaterialKind = 'snippet' | 'template' | 'divider';
+/** 自定义素材类型（snippet = 自由插入, template = 锁定样式, divider = 分割线, columns = 分栏布局） */
+export type CustomMaterialKind = 'snippet' | 'template' | 'divider' | 'columns';
 
 /** 节日信息 */
 export interface FestivalMeta {

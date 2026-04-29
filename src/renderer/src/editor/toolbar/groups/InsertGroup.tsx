@@ -1,5 +1,5 @@
-import { Link, Image } from 'lucide-react'
-import { useState } from 'react'
+import { Link, Image, Upload } from 'lucide-react'
+import { useState, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ function InsertGroup({ editor }: InsertGroupProps): React.JSX.Element {
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const insertLink = (): void => {
     if (!linkUrl) return
@@ -32,6 +33,13 @@ function InsertGroup({ editor }: InsertGroupProps): React.JSX.Element {
         text: linkText,
         marks: [{ type: 'link', attrs: { href: linkUrl } }],
       }).run()
+    } else {
+      // No selection and no custom text: insert URL as both href and display text
+      editor?.chain().focus().insertContent({
+        type: 'text',
+        text: linkUrl,
+        marks: [{ type: 'link', attrs: { href: linkUrl } }],
+      }).run()
     }
     setLinkUrl('')
     setLinkText('')
@@ -41,6 +49,19 @@ function InsertGroup({ editor }: InsertGroupProps): React.JSX.Element {
     if (!imageUrl) return
     editor?.chain().focus().setImage({ src: imageUrl }).run()
     setImageUrl('')
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      editor?.chain().focus().setImage({ src: dataUrl }).run()
+    }
+    reader.readAsDataURL(file)
+    // 重置 input 以便重复选择同一文件
+    e.target.value = ''
   }
 
   const hasSelection = editor ? editor.state.selection.from !== editor.state.selection.to : false
@@ -84,6 +105,19 @@ function InsertGroup({ editor }: InsertGroupProps): React.JSX.Element {
           <div className="space-y-2">
             <Input placeholder="图片 URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') insertImage() }} />
             <Button size="sm" className="w-full" onClick={insertImage}>插入</Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-popover px-2 text-muted-foreground">或</span>
+              </div>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+            <Button size="sm" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-1" />
+              选择本地图片
+            </Button>
           </div>
         </PopoverContent>
       </Popover>

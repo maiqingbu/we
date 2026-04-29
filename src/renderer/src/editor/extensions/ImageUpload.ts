@@ -252,19 +252,32 @@ export const ImageUpload = Extension.create<ImageUploadOptions>({
             const files = Array.from(event.dataTransfer?.files || []).filter((f) =>
               f.type.startsWith('image/')
             )
-            if (files.length === 0) return false
-
-            // Check for too many files (>10)
-            if (files.length > 10) {
-              const confirmed = window.confirm(
-                `你正在拖拽 ${files.length} 张图片，确定要全部上传吗？`
-              )
-              if (!confirmed) return true
+            if (files.length > 0) {
+              // Check for too many files (>10)
+              if (files.length > 10) {
+                const confirmed = window.confirm(
+                  `你正在拖拽 ${files.length} 张图片，确定要全部上传吗？`
+                )
+                if (!confirmed) return true
+              }
+              event.preventDefault()
+              files.forEach((file) => insertWithUpload(view, file))
+              return true
             }
 
-            event.preventDefault()
-            files.forEach((file) => insertWithUpload(view, file))
-            return true
+            // 没有 File 对象时，尝试从 dataTransfer 获取 URL（拖拽网页图片）
+            const url = event.dataTransfer?.getData('text/uri-list')
+              || event.dataTransfer?.getData('text/plain')
+            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+              event.preventDefault()
+              const { schema } = view.state
+              const node = schema.nodes.image.create({ src: url })
+              const tr = view.state.tr.replaceSelectionWith(node)
+              view.dispatch(tr)
+              return true
+            }
+
+            return false
           },
           handlePaste(view, event) {
             const files = Array.from(event.clipboardData?.files || []).filter((f) =>

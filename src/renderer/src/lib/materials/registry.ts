@@ -11,17 +11,31 @@ import { QrCodeTemplate } from './categories/templates/qrCode';
 import { AuthorCardTemplate } from './categories/templates/authorCard';
 import { FollowCtaTemplate } from './categories/templates/followCta';
 import { ArticleEndTemplate } from './categories/templates/articleEnd';
+import { QaCardTemplate } from './categories/templates/qaCard';
+import { ProsConsTemplate } from './categories/templates/prosCons';
+import { StepsTemplate } from './categories/templates/steps';
+import { StatsCardTemplate } from './categories/templates/statsCard';
+import { KeyPointsTemplate } from './categories/templates/keyPoints';
+import { WarningBoxTemplate } from './categories/templates/warningBox';
+import { TestimonialTemplate } from './categories/templates/testimonial';
+import { NumberedListTemplate } from './categories/templates/numberedList';
+import { PullQuoteTemplate } from './categories/templates/pullQuote';
+import { TocTemplate } from './categories/templates/toc';
 import { SpringFestivalMaterials } from './categories/festivals/spring';
 import { MidAutumnMaterials } from './categories/festivals/midAutumn';
 import { ChristmasMaterials } from './categories/festivals/christmas';
 import { QixiMaterials } from './categories/festivals/qixi';
 import { NationalMaterials } from './categories/festivals/national';
+import { SVG_DECORATIONS } from './categories/svg/decorations';
+import { SVG_ICONS } from './categories/svg/icons';
+import { SVG_BADGES } from './categories/svg/badges';
 
 const allDividers = [...MINIMAL_DIVIDERS, ...PATTERN_DIVIDERS, ...GRADIENT_DIVIDERS, ...DECORATION_DIVIDERS];
-const allTemplates = [InfoBoxTemplate, QuoteCardTemplate, HighlightTemplate, CtaTemplate, QrCodeTemplate, AuthorCardTemplate, FollowCtaTemplate, ArticleEndTemplate];
+const allTemplates = [InfoBoxTemplate, QuoteCardTemplate, HighlightTemplate, CtaTemplate, QrCodeTemplate, AuthorCardTemplate, FollowCtaTemplate, ArticleEndTemplate, QaCardTemplate, ProsConsTemplate, StepsTemplate, StatsCardTemplate, KeyPointsTemplate, WarningBoxTemplate, TestimonialTemplate, NumberedListTemplate, PullQuoteTemplate, TocTemplate];
 const allFestivals = [...SpringFestivalMaterials, ...MidAutumnMaterials, ...ChristmasMaterials, ...QixiMaterials, ...NationalMaterials];
+const allSvgs = [...SVG_DECORATIONS, ...SVG_ICONS, ...SVG_BADGES];
 
-export const allMaterials: Material[] = [...allDividers, ...allTemplates, ...allFestivals];
+export const allMaterials: Material[] = [...allDividers, ...allTemplates, ...allFestivals, ...allSvgs];
 
 export function getMaterialsByCategory(category: MaterialCategory): Material[] {
   return allMaterials.filter((m) => m.category === category);

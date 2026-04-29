@@ -28,6 +28,10 @@ import { DragHandle as DragHandleExtension } from '@tiptap/extension-drag-handle
 import { SlashCommand } from './SlashCommand'
 import { ImageUpload } from './ImageUpload'
 import { TemplateBlock } from './TemplateBlock'
+import { ImageEditExtension } from './ImageEdit'
+import { ColumnsContainer } from './ColumnsContainer'
+import { Column } from './Column'
+import { FindReplace } from './FindReplace'
 
 const lowlight = createLowlight(common)
 
@@ -88,5 +92,9 @@ export function getExtensions() {
     SlashCommand,
     ImageUpload,
     TemplateBlock,
+    ImageEditExtension,
+    Column,
+    ColumnsContainer,
+    FindReplace,
   ]
 }

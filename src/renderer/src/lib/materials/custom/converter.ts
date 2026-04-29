@@ -1,24 +1,19 @@
 import type { CustomMaterialKind } from '../types'
 
+// detectMaterialKind 需要返回 'columns' 类型，扩展类型定义
+
 /**
  * 清洁 HTML：剥掉 ProseMirror 注入的临时属性，只保留可视化必需的属性
  */
 export function cleanHtml(html: string): string {
-  // 白名单属性：保留 data-editable, data-template-id, style, src, href, alt, class
-  const allowedAttrs = new Set([
-    'data-editable', 'data-template-id', 'data-material-id',
-    'style', 'src', 'href', 'alt', 'class', 'colspan', 'rowspan',
-    'target', 'rel', 'width', 'height', 'border', 'cellpadding', 'cellspacing',
-    'align', 'valign', 'bgcolor',
-  ])
-
-  // 移除 ProseMirror 临时属性
-  return html.replace(/\s(data-pm-slice|data-pm-type|data-node-view-content|data-id|data-type|data-column|data-row)[^"']*(?:"[^"]*"|'[^']*')?/gi, '')
+  // 移除 ProseMirror 临时属性（保留 data-column、data-columns-container 等结构属性）
+  return html.replace(/\s(data-pm-slice|data-pm-type|data-node-view-content|data-id|data-type)[^"']*(?:"[^"]*"|'[^']*')?/gi, '')
 }
 
 /**
  * 自动判断素材类型
  * - 包含 data-template-id → template（锁定样式）
+ * - 包含 data-columns-container → columns（分栏布局）
  * - 单行 <hr> 或 <section> 且文字 < 30 字 → divider
  * - 其他 → snippet
  */
@@ -27,6 +22,11 @@ export function detectMaterialKind(html: string): CustomMaterialKind {
     // 检查是否包含 templateBlock 节点
     if (html.includes('data-template-id') || html.includes('data-material-id')) {
       return 'template'
+    }
+
+    // 检查是否是分栏布局
+    if (html.includes('data-columns-container')) {
+      return 'columns'
     }
 
     // 检查是否是分割线类

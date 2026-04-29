@@ -1,12 +1,15 @@
 import { useState, useMemo, useEffect, useCallback, Component, type ReactNode, type ErrorInfo } from 'react'
+import { DOMSerializer } from 'prosemirror-model'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useAppStore, type CustomMaterialItem, type CustomMaterialGroupItem } from '@/store/useAppStore'
 import { allMaterials, searchMaterials, getMaterialsByKind, getAllFestivals } from '@/lib/materials/registry'
 import { getUpcomingFestivals } from '@/lib/festivals'
+import { COLUMN_PRESETS, getPresetsByGroup } from '@/lib/materials/columns'
+import type { ColumnPreset } from '@/lib/materials/columns'
 import type { Material, MaterialVariant } from '@/lib/materials/types'
 import { SaveMaterialDialog } from './SaveMaterialDialog'
 
-type TabType = 'divider' | 'template' | 'festival' | 'custom'
+type TabType = 'divider' | 'template' | 'columns' | 'festival' | 'svg' | 'custom'
 
 // ErrorBoundary 防止子组件崩溃导致整个应用白屏
 class MaterialErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error?: Error }> {
@@ -61,20 +64,18 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
       refreshCustomMaterials()
       setContextMenuId(null)
       setImportResult(null)
-      // 缓存当前编辑器选区 HTML（在编辑器还聚焦时）
+      // 缓存当前编辑器选区 HTML（用 ProseMirror 序列化，保留自定义节点结构）
       if (editor) {
-        const { empty } = editor.state.selection
+        const { empty, from, to } = editor.state.selection
         if (!empty) {
           try {
-            const sel = window.getSelection()
-            if (sel && sel.rangeCount > 0) {
-              const range = sel.getRangeAt(0)
-              const container = document.createElement('div')
-              container.appendChild(range.cloneContents())
-              setCachedSelectionHtml(container.innerHTML)
-            } else {
-              setCachedSelectionHtml('')
-            }
+            const fragment = editor.state.doc.slice(from, to).content
+            const serializer = DOMSerializer.fromSchema(editor.state.schema)
+            const wrap = document.createElement('div')
+            fragment.forEach((node) => {
+              wrap.appendChild(serializer.serializeNode(node))
+            })
+            setCachedSelectionHtml(wrap.innerHTML)
           } catch {
             setCachedSelectionHtml('')
           }
@@ -87,10 +88,33 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
   // 内置素材过滤
   const builtinFiltered = useMemo(() => {
-    if (tab === 'custom') return []
+    if (tab === 'custom' || tab === 'columns') return []
     let items = search ? searchMaterials(search) : allMaterials
     return items.filter((m) => m.kind === tab)
   }, [search, tab])
+
+  // 图文混排预设过滤
+  const columnsFiltered = useMemo(() => {
+    if (tab !== 'columns') return []
+    if (search) {
+      const q = search.toLowerCase()
+      return COLUMN_PRESETS.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.keywords.some((k) => k.toLowerCase().includes(q))
+      )
+    }
+    return COLUMN_PRESETS
+  }, [search, tab])
+
+  // 图文混排按分组
+  const columnsGrouped = useMemo(() => {
+    const groups: Record<string, ColumnPreset[]> = {}
+    for (const p of columnsFiltered) {
+      if (!groups[p.group]) groups[p.group] = []
+      groups[p.group].push(p)
+    }
+    return groups
+  }, [columnsFiltered])
 
   // 自定义素材过滤（支持搜索）
   const customFiltered = useMemo(() => {
@@ -120,7 +144,7 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
       if (item.kind === 'template') {
         editor.commands.insertTemplateBlock(item.id, item.html)
       } else {
-        // snippet / divider: 直接插入内容
+        // snippet / divider / columns: 通过 ProseMirror 解析器插入，自动还原节点结构
         editor.chain().focus().insertContent(item.html).run()
       }
       incrementMaterialUse(item.id)
@@ -240,12 +264,26 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
     'template-author': '作者卡',
     'template-follow': '关注引导',
     'template-end': '文章封底',
+    'template-qa': '问答',
+    'template-compare': '对比',
+    'template-steps': '步骤',
+    'template-stats': '数据',
+    'template-key-points': '要点',
+    'template-warning': '警告',
+    'template-testimonial': '评价',
+    'template-list': '列表',
+    'template-toc': '目录',
+    'svg-decor': '装饰',
+    'svg-icon': '图标',
+    'svg-badge': '徽章',
   }
 
   const tabLabels: Record<TabType, string> = {
     divider: '分割线',
     template: '模板',
+    columns: '图文混排',
     festival: '节日',
+    svg: 'SVG素材',
     custom: '我的',
   }
 
@@ -276,7 +314,7 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
           {/* Tabs */}
           <div className="flex border-b border-border px-4">
-            {(['divider', 'template', 'festival', 'custom'] as TabType[]).map((t) => (
+            {(['divider', 'template', 'columns', 'festival', 'svg', 'custom'] as TabType[]).map((t) => (
               <button
                 key={t}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
@@ -380,7 +418,41 @@ function MaterialPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
           {/* Material Grid */}
           <div className="flex-1 overflow-y-auto p-4">
-            {tab === 'custom' ? (
+            {tab === 'columns' ? (
+              /* 图文混排预设 */
+              columnsFiltered.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-sm text-muted-foreground">没有找到匹配的布局</div>
+                </div>
+              ) : (
+                Object.entries(columnsGrouped).map(([groupKey, presets]) => (
+                  <div key={groupKey} className="mb-6">
+                    <div className="text-xs font-medium mb-2 text-muted-foreground">{groupKey} ({presets.length})</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {presets.map((preset) => (
+                        <button
+                          key={preset.id}
+                          className="rounded-lg border border-border p-2 text-left hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (!editor) return
+                            editor.commands.insertColumns(preset.layout, preset.widths, preset.defaultContent)
+                            onOpenChange(false)
+                          }}
+                        >
+                          <div
+                            className="rounded bg-muted/50 p-2 mb-1.5 overflow-hidden"
+                            style={{ minHeight: '48px' }}
+                            dangerouslySetInnerHTML={{ __html: preset.thumbnail }}
+                          />
+                          <div className="text-xs font-medium truncate">{preset.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{preset.icon}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )
+            ) : tab === 'custom' ? (
               /* 自定义素材 */
               customFiltered.length === 0 ? (
                 <div className="text-center py-12">
