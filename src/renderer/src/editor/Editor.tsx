@@ -14,6 +14,7 @@ import { getStoredFile, deleteStoredFile } from './extensions/ImageUpload'
 import type { LintIssue } from './extensions/LintHighlight'
 import { useAppStore } from '@/store/useAppStore'
 import { UploadStatus } from '@/components/UploadStatus'
+import { SaveMaterialDialog } from '@/components/MaterialPanel/SaveMaterialDialog'
 
 async function getUploadConfig(): Promise<{ providerId: string; config: Record<string, string> } | null> {
   try {
@@ -42,10 +43,70 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
   const [uploadingBase64, setUploadingBase64] = useState(false)
   const lintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 右键菜单状态
+  const [ctxMenuVisible, setCtxMenuVisible] = useState(false)
+  const [ctxMenuPos, setCtxMenuPos] = useState({ x: 0, y: 0 })
+  const [ctxMenuHtml, setCtxMenuHtml] = useState('')
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveDialogHtml, setSaveDialogHtml] = useState('')
+  const ctxMenuRef = useRef<HTMLDivElement>(null)
+
   // Save editor instance to store for AIAssistant access
   useEffect(() => {
     if (editor) useAppStore.getState().setEditorInstance(editor)
   }, [editor])
+
+  // 右键菜单：在编辑器 DOM 上监听 contextmenu
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom as HTMLElement
+
+    const onCtx = (e: MouseEvent): void => {
+      const { from, to, empty } = editor.view.state.selection
+      if (empty) return // 无选区不拦截
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      // 提取选区 HTML —— 用浏览器原生 Selection API，最可靠
+      try {
+        const sel = window.getSelection()
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0)
+          const div = document.createElement('div')
+          div.appendChild(range.cloneContents())
+          setCtxMenuHtml(div.innerHTML)
+        } else {
+          setCtxMenuHtml('')
+        }
+      } catch {
+        setCtxMenuHtml('')
+      }
+
+      setCtxMenuPos({
+        x: Math.min(e.clientX, window.innerWidth - 170),
+        y: Math.min(e.clientY, window.innerHeight - 50),
+      })
+      setCtxMenuVisible(true)
+    }
+
+    dom.addEventListener('contextmenu', onCtx, true)
+    return () => dom.removeEventListener('contextmenu', onCtx, true)
+  }, [editor])
+
+  // 点击外部关闭右键菜单
+  useEffect(() => {
+    if (!ctxMenuVisible) return
+    const t = setTimeout(() => {
+      const h = (e: MouseEvent) => {
+        if (ctxMenuRef.current?.contains(e.target as Node)) return
+        setCtxMenuVisible(false)
+      }
+      document.addEventListener('mousedown', h)
+      return () => document.removeEventListener('mousedown', h)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [ctxMenuVisible])
 
   // Run lint on content change (1s debounce)
   useEffect(() => {
@@ -379,6 +440,34 @@ function Editor({ editor }: EditorProps): React.JSX.Element {
         linkResults={linkResults}
       />
       <UploadStatus />
+
+      {/* 右键菜单 */}
+      {ctxMenuVisible && (
+        <div
+          ref={ctxMenuRef}
+          className="fixed z-[9999] bg-popover border border-border rounded-md shadow-lg py-1 min-w-[150px]"
+          style={{ left: ctxMenuPos.x, top: ctxMenuPos.y }}
+        >
+          <button
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2 cursor-pointer"
+            onClick={() => {
+              setCtxMenuVisible(false)
+              setSaveDialogHtml(ctxMenuHtml)
+              setSaveDialogOpen(true)
+            }}
+          >
+            <span>📌</span>
+            <span>保存为素材</span>
+          </button>
+        </div>
+      )}
+
+      {/* 保存素材对话框 */}
+      <SaveMaterialDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        selectedHtml={saveDialogHtml}
+      />
     </div>
   )
 }

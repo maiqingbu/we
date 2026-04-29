@@ -9,6 +9,7 @@ import { registerExportPdfHandlers } from './ipc/exportPdf'
 import { registerPreviewHandlers } from './ipc/preview'
 import { registerAiHandlers } from './ipc/ai'
 import { registerImageUploadHandlers } from './ipc/imageUpload'
+import { registerCustomMaterialHandlers } from './ipc/customMaterial'
 import { startPreviewServer } from './services/previewServer'
 import { getDb, listSavedStyles, createSavedStyle, updateSavedStyle, deleteSavedStyle, listSnapshots, createSnapshot, getSnapshot, getLatestSnapshotTime, listCustomThemes, createCustomTheme, updateCustomTheme, deleteCustomTheme, duplicateCustomTheme } from './db'
 
@@ -64,6 +65,7 @@ app.whenReady().then(() => {
   registerPreviewHandlers()
   registerAiHandlers()
   registerImageUploadHandlers(getDb())
+  registerCustomMaterialHandlers()
 
   // ── Saved Styles ──
   ipcMain.handle('style:list', () => {

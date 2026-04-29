@@ -86,6 +86,23 @@ interface Api {
   imageHostSetSetting: (key: string, value: string) => Promise<void>
   imageUpload: (providerId: string, fileData: { buffer: ArrayBuffer; name: string }, config: Record<string, string>) => Promise<{ success: boolean; data?: { url: string }; error?: string }>
   imageTestConnection: (providerId: string, config: Record<string, string>) => Promise<{ ok: boolean; error?: string }>
+  // Custom Materials
+  cmList: () => Promise<{ materials: any[]; groups: any[] }>
+  cmSave: (material: { id?: string; name: string; kind: string; keywords: string[]; thumbnail: string; html: string; group_id?: string | null }) => Promise<{ id: string }>
+  cmDelete: (id: string) => Promise<boolean>
+  cmIncrementUse: (id: string) => Promise<void>
+  cmUpdateMeta: (id: string, data: { name?: string; keywords?: string[]; group_id?: string | null }) => Promise<boolean>
+  cmUpdateHtml: (id: string, html: string, thumbnail: string) => Promise<boolean>
+  cmDuplicate: (id: string) => Promise<{ id: string } | null>
+  cmMoveToGroup: (materialId: string, groupId: string | null) => Promise<boolean>
+  cmCreateGroup: (name: string) => Promise<any>
+  cmRenameGroup: (id: string, newName: string) => Promise<boolean>
+  cmDeleteGroup: (id: string, alsoDeleteMaterials: boolean) => Promise<void>
+  cmReorderGroups: (ids: string[]) => Promise<void>
+  cmExportAll: () => Promise<any>
+  cmExportToFile: () => Promise<{ canceled: boolean; path?: string }>
+  cmImportFromFile: () => Promise<{ canceled: boolean; data?: any; error?: string }>
+  cmImport: (data: any, conflictStrategy: 'skip' | 'overwrite' | 'new') => Promise<{ added: number; skipped: number; overwritten: number }>
 }
 
 declare global {

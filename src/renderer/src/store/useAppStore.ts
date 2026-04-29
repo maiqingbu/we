@@ -19,6 +19,26 @@ interface ConfiguredProvider {
   provider_id: string
 }
 
+export interface CustomMaterialItem {
+  id: string
+  name: string
+  kind: string
+  keywords: string[]
+  thumbnail: string
+  html: string
+  group_id: string | null
+  created_at: number
+  updated_at: number
+  use_count: number
+}
+
+export interface CustomMaterialGroupItem {
+  id: string
+  name: string
+  sort_order: number
+  created_at: number
+}
+
 interface AppState {
   articles: Article[]
   currentArticleId: number | null
@@ -28,6 +48,8 @@ interface AppState {
   currentTheme: Theme | null
   editorInstance: Editor | null
   configuredProviders: ConfiguredProvider[]
+  customMaterials: CustomMaterialItem[]
+  customGroups: CustomMaterialGroupItem[]
   setArticles: (articles: Article[]) => void
   setCurrentArticleId: (id: number | null) => void
   setCurrentArticleTitle: (title: string) => void
@@ -36,6 +58,10 @@ interface AppState {
   setCurrentTheme: (theme: Theme) => void
   setEditorInstance: (editor: Editor | null) => void
   setConfiguredProviders: (providers: ConfiguredProvider[]) => void
+  refreshCustomMaterials: () => Promise<void>
+  saveCustomMaterial: (m: { id?: string; name: string; kind: string; keywords: string[]; thumbnail: string; html: string; group_id?: string | null }) => Promise<string>
+  deleteCustomMaterial: (id: string) => Promise<void>
+  incrementMaterialUse: (id: string) => void
 }
 
 const useAppStore = create<AppState>()(
@@ -49,6 +75,8 @@ const useAppStore = create<AppState>()(
       currentTheme: null,
       editorInstance: null,
       configuredProviders: [],
+      customMaterials: [],
+      customGroups: [],
       setArticles: (articles) => set({ articles }),
       setCurrentArticleId: (id) => set({ currentArticleId: id }),
       setCurrentArticleTitle: (title) => set({ currentArticleTitle: title }),
@@ -57,6 +85,38 @@ const useAppStore = create<AppState>()(
       setCurrentTheme: (theme) => set({ currentTheme: theme }),
       setEditorInstance: (editor) => set({ editorInstance: editor }),
       setConfiguredProviders: (providers) => set({ configuredProviders: providers }),
+      refreshCustomMaterials: async () => {
+        try {
+          const res = await window.api?.cmList()
+          if (res) {
+            const materials: CustomMaterialItem[] = res.materials.map((m: any) => ({
+              ...m,
+              keywords: JSON.parse(m.keywords || '[]'),
+            }))
+            const groups: CustomMaterialGroupItem[] = res.groups
+            set({ customMaterials: materials, customGroups: groups })
+          }
+        } catch (err) {
+          console.error('[custom-materials] Failed to load:', err)
+        }
+      },
+      saveCustomMaterial: async (m) => {
+        const res = await window.api?.cmSave(m)
+        if (res) {
+          // 刷新列表
+          useAppStore.getState().refreshCustomMaterials()
+          return res.id
+        }
+        return ''
+      },
+      deleteCustomMaterial: async (id) => {
+        await window.api?.cmDelete(id)
+        useAppStore.getState().refreshCustomMaterials()
+      },
+      incrementMaterialUse: (id) => {
+        window.api?.cmIncrementUse(id)
+        // 不需要立即刷新，下次打开面板时自然会刷新
+      },
     }),
     {
       name: 'wx-typesetter-store',

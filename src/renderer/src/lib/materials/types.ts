@@ -2,9 +2,32 @@ export type MaterialCategory =
   | 'divider-minimal' | 'divider-pattern' | 'divider-gradient' | 'divider-decoration'
   | 'template-info' | 'template-quote' | 'template-highlight'
   | 'template-cta' | 'template-qrcode' | 'template-author'
-  | 'template-follow' | 'template-end';
+  | 'template-follow' | 'template-end'
+  | 'festival-spring' | 'festival-midautumn' | 'festival-christmas'
+  | 'festival-qixi' | 'festival-national';
 
-export type MaterialKind = 'divider' | 'template';
+export type MaterialKind = 'divider' | 'template' | 'festival' | 'snippet';
+
+/** 自定义素材类型（snippet = 自由插入, template = 锁定样式, divider = 分割线） */
+export type CustomMaterialKind = 'snippet' | 'template' | 'divider';
+
+/** 节日信息 */
+export interface FestivalMeta {
+  /** 节日名称，如"春节"、"中秋节" */
+  name: string;
+  /** 公历月份（1-12），固定日期的节日 */
+  month?: number;
+  /** 公历日期，固定日期的节日 */
+  day?: number;
+  /** 农历月份（1-12），农历节日 */
+  lunarMonth?: number;
+  /** 农历日期，农历节日 */
+  lunarDay?: number;
+  /** 节日主题色 */
+  color: string;
+  /** 节日图标 */
+  icon: string;
+}
 
 export interface Material {
   id: string;
@@ -16,6 +39,8 @@ export interface Material {
   html: string;
   variants?: MaterialVariant[];
   tags?: string[];
+  /** 节日元数据，仅 kind='festival' 时有值 */
+  festival?: FestivalMeta;
 }
 
 export interface MaterialVariant {

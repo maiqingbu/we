@@ -99,6 +99,32 @@ export function getDb(): Database.Database {
     )
   `)
 
+  // ── Custom Materials ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_materials (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      keywords TEXT,
+      thumbnail TEXT NOT NULL,
+      html TEXT NOT NULL,
+      group_id TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      use_count INTEGER DEFAULT 0
+    )
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_material_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_custom_materials_group ON custom_materials(group_id)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_custom_materials_use ON custom_materials(use_count DESC)`)
+
   return db
 }
 
@@ -249,4 +275,147 @@ export function duplicateCustomTheme(sourceId: string, newName: string): CustomT
   if (!source) throw new Error('Source theme not found')
   const newId = `custom-${Date.now()}`
   return createCustomTheme(newId, newName, source.css, source.base_theme_id)
+}
+
+// ── Custom Materials ──
+
+export interface CustomMaterial {
+  id: string
+  name: string
+  kind: string
+  keywords: string // JSON array
+  thumbnail: string
+  html: string
+  group_id: string | null
+  created_at: number
+  updated_at: number
+  use_count: number
+}
+
+export interface CustomMaterialGroup {
+  id: string
+  name: string
+  sort_order: number
+  created_at: number
+}
+
+export function listCustomMaterials(): CustomMaterial[] {
+  return getDb().prepare('SELECT * FROM custom_materials ORDER BY use_count DESC, updated_at DESC').all() as CustomMaterial[]
+}
+
+export function getCustomMaterial(id: string): CustomMaterial | null {
+  return (getDb().prepare('SELECT * FROM custom_materials WHERE id = ?').get(id) as CustomMaterial | undefined) ?? null
+}
+
+export function saveCustomMaterial(m: {
+  id?: string
+  name: string
+  kind: string
+  keywords: string[]
+  thumbnail: string
+  html: string
+  group_id?: string | null
+}): { id: string } {
+  const db = getDb()
+  const id = m.id || `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const now = Math.floor(Date.now() / 1000)
+  const keywordsJson = JSON.stringify(m.keywords)
+
+  db.prepare(`
+    INSERT INTO custom_materials (id, name, kind, keywords, thumbnail, html, group_id, created_at, updated_at, use_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      kind = excluded.kind,
+      keywords = excluded.keywords,
+      thumbnail = excluded.thumbnail,
+      html = excluded.html,
+      group_id = excluded.group_id,
+      updated_at = excluded.updated_at
+  `).run(id, m.name, m.kind, keywordsJson, m.thumbnail, m.html, m.group_id ?? null, now, now)
+
+  return { id }
+}
+
+export function deleteCustomMaterial(id: string): boolean {
+  return getDb().prepare('DELETE FROM custom_materials WHERE id = ?').run(id).changes > 0
+}
+
+export function incrementMaterialUse(id: string): void {
+  getDb().prepare('UPDATE custom_materials SET use_count = use_count + 1 WHERE id = ?').run(id)
+}
+
+export function updateCustomMaterialMeta(id: string, data: { name?: string; keywords?: string[]; group_id?: string | null }): boolean {
+  const existing = getCustomMaterial(id)
+  if (!existing) return false
+  const db = getDb()
+  const now = Math.floor(Date.now() / 1000)
+  const name = data.name ?? existing.name
+  const keywords = data.keywords !== undefined ? JSON.stringify(data.keywords) : existing.keywords
+  const groupId = data.group_id !== undefined ? data.group_id : existing.group_id
+  db.prepare('UPDATE custom_materials SET name = ?, keywords = ?, group_id = ?, updated_at = ? WHERE id = ?').run(name, keywords, groupId, now, id)
+  return true
+}
+
+export function updateCustomMaterialHtml(id: string, html: string, thumbnail: string): boolean {
+  const now = Math.floor(Date.now() / 1000)
+  return getDb().prepare('UPDATE custom_materials SET html = ?, thumbnail = ?, updated_at = ? WHERE id = ?').run(html, thumbnail, now, id).changes > 0
+}
+
+export function duplicateCustomMaterial(sourceId: string): { id: string } | null {
+  const source = getCustomMaterial(sourceId)
+  if (!source) return null
+  return saveCustomMaterial({
+    name: source.name + '（副本）',
+    kind: source.kind,
+    keywords: JSON.parse(source.keywords || '[]'),
+    thumbnail: source.thumbnail,
+    html: source.html,
+    group_id: source.group_id,
+  })
+}
+
+// ── Custom Material Groups ──
+
+export function listCustomMaterialGroups(): CustomMaterialGroup[] {
+  return getDb().prepare('SELECT * FROM custom_material_groups ORDER BY sort_order ASC, created_at ASC').all() as CustomMaterialGroup[]
+}
+
+export function createCustomMaterialGroup(name: string): CustomMaterialGroup {
+  const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  const now = Math.floor(Date.now() / 1000)
+  // 获取最大 sort_order
+  const maxRow = getDb().prepare('SELECT MAX(sort_order) as max_sort FROM custom_material_groups').get() as { max_sort: number | null }
+  const sortOrder = (maxRow?.max_sort ?? -1) + 1
+  return getDb().prepare('INSERT INTO custom_material_groups (id, name, sort_order, created_at) VALUES (?, ?, ?, ?) RETURNING *').get(id, name, sortOrder, now) as CustomMaterialGroup
+}
+
+export function renameCustomMaterialGroup(id: string, newName: string): boolean {
+  return getDb().prepare('UPDATE custom_material_groups SET name = ? WHERE id = ?').run(newName, id).changes > 0
+}
+
+export function deleteCustomMaterialGroup(id: string, alsoDeleteMaterials: boolean): void {
+  if (alsoDeleteMaterials) {
+    getDb().prepare('DELETE FROM custom_materials WHERE group_id = ?').run(id)
+  } else {
+    // 将组内素材移到未分组
+    getDb().prepare('UPDATE custom_materials SET group_id = NULL WHERE group_id = ?').run(id)
+  }
+  getDb().prepare('DELETE FROM custom_material_groups WHERE id = ?').run(id)
+}
+
+export function reorderCustomMaterialGroups(ids: string[]): void {
+  const db = getDb()
+  const stmt = db.prepare('UPDATE custom_material_groups SET sort_order = ? WHERE id = ?')
+  const transaction = db.transaction((items: string[]) => {
+    for (let i = 0; i < items.length; i++) {
+      stmt.run(i, items[i])
+    }
+  })
+  transaction(ids)
+}
+
+export function moveMaterialToGroup(materialId: string, groupId: string | null): boolean {
+  const now = Math.floor(Date.now() / 1000)
+  return getDb().prepare('UPDATE custom_materials SET group_id = ?, updated_at = ? WHERE id = ?').run(groupId, now, materialId).changes > 0
 }

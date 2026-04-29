@@ -147,6 +147,39 @@ const api = {
     ipcRenderer.invoke('image:upload', providerId, fileData, config),
   imageTestConnection: (providerId: string, config: Record<string, string>): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('image:test-connection', providerId, config),
+  // Custom Materials
+  cmList: (): Promise<{ materials: any[]; groups: any[] }> =>
+    ipcRenderer.invoke('cm:list'),
+  cmSave: (material: { id?: string; name: string; kind: string; keywords: string[]; thumbnail: string; html: string; group_id?: string | null }): Promise<{ id: string }> =>
+    ipcRenderer.invoke('cm:save', material),
+  cmDelete: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('cm:delete', id),
+  cmIncrementUse: (id: string): Promise<void> =>
+    ipcRenderer.invoke('cm:incrementUse', id),
+  cmUpdateMeta: (id: string, data: { name?: string; keywords?: string[]; group_id?: string | null }): Promise<boolean> =>
+    ipcRenderer.invoke('cm:updateMeta', id, data),
+  cmUpdateHtml: (id: string, html: string, thumbnail: string): Promise<boolean> =>
+    ipcRenderer.invoke('cm:updateHtml', id, html, thumbnail),
+  cmDuplicate: (id: string): Promise<{ id: string } | null> =>
+    ipcRenderer.invoke('cm:duplicate', id),
+  cmMoveToGroup: (materialId: string, groupId: string | null): Promise<boolean> =>
+    ipcRenderer.invoke('cm:moveToGroup', materialId, groupId),
+  cmCreateGroup: (name: string): Promise<any> =>
+    ipcRenderer.invoke('cm:createGroup', name),
+  cmRenameGroup: (id: string, newName: string): Promise<boolean> =>
+    ipcRenderer.invoke('cm:renameGroup', id, newName),
+  cmDeleteGroup: (id: string, alsoDeleteMaterials: boolean): Promise<void> =>
+    ipcRenderer.invoke('cm:deleteGroup', id, alsoDeleteMaterials),
+  cmReorderGroups: (ids: string[]): Promise<void> =>
+    ipcRenderer.invoke('cm:reorderGroups', ids),
+  cmExportAll: (): Promise<any> =>
+    ipcRenderer.invoke('cm:exportAll'),
+  cmExportToFile: (): Promise<{ canceled: boolean; path?: string }> =>
+    ipcRenderer.invoke('cm:exportToFile'),
+  cmImportFromFile: (): Promise<{ canceled: boolean; data?: any; error?: string }> =>
+    ipcRenderer.invoke('cm:importFromFile'),
+  cmImport: (data: any, conflictStrategy: 'skip' | 'overwrite' | 'new'): Promise<{ added: number; skipped: number; overwritten: number }> =>
+    ipcRenderer.invoke('cm:import', data, conflictStrategy),
 }
 
 if (process.contextIsolated) {
